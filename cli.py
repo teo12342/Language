@@ -8,13 +8,13 @@ sys.path.insert(0, str(Path(__file__).parent / "src"))
 from bolt.builtins import make_builtins
 from bolt.compiler import compile_program
 from bolt.errors import BoltError
-from bolt.interpreter import Interpreter
+from bolt.interpreter import BoltFunction, Interpreter
 from bolt.jsgen import generate_js
 from bolt.lexer import Lexer
 from bolt.native import NativeCompileError, compile_native
 from bolt.parser import Parser
 from bolt.typechecker import check_types
-from bolt.vm import VM
+from bolt.vm import VM, Closure
 
 
 def run_source(source: str, engine: str = "vm", typecheck: bool = True, native: bool = False) -> int:
@@ -34,11 +34,30 @@ def run_source(source: str, engine: str = "vm", typecheck: bool = True, native: 
             except NativeCompileError as e:
                 print(f"[native] {e.message}", file=sys.stderr)
 
+        # A holder lets the builtins' call_fn close over the engine
+        # instance before it exists yet (needed so a builtin like serve()
+        # can call back into Bolt code, e.g. a request handler function).
+        holder: dict = {}
+
         if engine == "vm":
+            def call_fn(fn, call_args):
+                if isinstance(fn, Closure):
+                    return holder["vm"].call_closure(fn, call_args, 0)
+                return fn(*call_args)
+
             proto = compile_program(statements)
-            VM(make_builtins(), native=wrappers).run_program(proto)
+            vm = VM(make_builtins(call_fn), native=wrappers)
+            holder["vm"] = vm
+            vm.run_program(proto)
         else:
-            Interpreter(make_builtins(), native=wrappers).run(statements)
+            def call_fn(fn, call_args):
+                if isinstance(fn, BoltFunction):
+                    return fn.call(holder["interp"], call_args, 0)
+                return fn(*call_args)
+
+            interp = Interpreter(make_builtins(call_fn), native=wrappers)
+            holder["interp"] = interp
+            interp.run(statements)
         return 0
     except BoltError as e:
         print(f"Error: {e.message}" + (f" (line {e.line})" if e.line else ""), file=sys.stderr)
