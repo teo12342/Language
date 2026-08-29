@@ -226,15 +226,23 @@ framework. See `examples/webserver.bo`.
 
 Any top-level `func` whose parameters *and* return type are all annotated
 `number` — and whose body only uses arithmetic, comparisons, `if`/`while`,
-`for x in range(...)`, `return`, and calls to other such functions
-(including itself, for recursion) — is eligible. Eligible functions get
-compiled to C, built with `gcc -O2`, and loaded back via `ctypes`; the
-compiled version replaces the interpreted one under the same name, so
-every call site (recursive calls included) transparently runs at native
-speed. Anything not eligible (strings, lists, maps, tensors, closures,
-untyped params, break/continue, a `for` over anything but `range(...)`)
-is reported and simply keeps running on the VM/interpreter — a script can
-freely mix both.
+`for x in range(...)`, `return`, calls to `sqrt`/`abs`/`floor`/`ceil`/
+`pow`/`min`/`max` (mapped straight to their `<math.h>` equivalents), and
+calls to other such functions (including itself, for recursion) — is
+eligible. Eligible functions get compiled to C, built with `gcc -O2`, and
+loaded back via `ctypes`; the compiled version replaces the interpreted
+one under the same name, so every call site (recursive calls included)
+transparently runs at native speed. Anything not eligible (strings,
+lists, maps, tensors, closures, untyped params, break/continue, a `for`
+over anything but `range(...)`, `min`/`max` with anything but exactly two
+arguments) is reported and simply keeps running on the VM/interpreter —
+a script can freely mix both.
+
+One known display quirk: C only has doubles, so a natively-compiled
+function can't tell "this whole number is conceptually an int" from
+"this whole number is conceptually a float" — e.g. `sqrt(25)` prints as
+`5` when native-compiled vs. `5.0` on the VM/interpreter. The value is
+numerically identical either way; only the printed form differs.
 
 ```bash
 python cli.py --native examples/bench_native.bo
@@ -249,11 +257,15 @@ self-contained file (small runtime prelude + your program) that runs in
 Node or any browser, no build step or dependency. JavaScript already has
 closures, dynamic typing, and GC'd arrays/objects, so the transpiler is a
 fairly direct structural translation (unlike the bytecode VM, which had to
-build all of that itself). Known gaps: JS numbers are float64, so scripts
-that rely on Python/Bolt's arbitrary-precision integers (e.g. a
-multiply-heavy PRNG) can diverge numerically; `==`/`!=` on lists/maps is
-reference equality in JS, not the VM's structural equality; and the
-`tensor` builtins aren't available in the generated JS runtime yet.
+build all of that itself). The full standard library (math, string, list
+utilities) and the tensor type (`+ - * /`, `dot`, `matmul`, `transpose`,
+`identity`, `tmap`) both work in the generated JS too, backed by the same
+runtime prelude. Known gaps: JS numbers are float64, so scripts that rely
+on Python/Bolt's arbitrary-precision integers (e.g. a multiply-heavy PRNG)
+can diverge numerically, and a value that's numerically whole but
+conceptually a float (e.g. `dot()` returning `11.0`) prints as `11` in JS
+since it has no separate int/float type; `==`/`!=` on lists/maps is
+reference equality in JS, not the VM's structural equality.
 
 ## Project structure
 
