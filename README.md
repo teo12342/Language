@@ -193,6 +193,7 @@ print(map.a)          # dot access also works on maps
 | `tshape(t)` / `tolist(t)` / `tsum(t)` | Tensor shape, back to a list, sum of elements |
 | `tmap(t, fn)` | Apply a Bolt function elementwise over a tensor |
 | `serve(port, handler, max_requests=1)` | Start a real HTTP server; see below |
+| `import(path)` | Load another `.bo` file as a module; see below |
 
 ### Built-in web server (`serve`)
 
@@ -221,6 +222,38 @@ generated response inspected offline.
 This is intentionally minimal (no routing table, no request body/headers,
 GET only) — a starting point for "Bolt can serve a page" rather than a web
 framework. See `examples/webserver.bo`.
+
+### Packages (`import`)
+
+Code can be split across files and reused. `import(path)` loads another
+`.bo` file as an isolated module and returns a map of everything it
+defines at its own top level:
+
+```
+let math = import("packages/mathutils.bo")
+print(math.square(5))       # 25
+print(math.factorial(5))    # 120
+print(math.is_prime(17))    # true
+```
+
+`path` is looked up relative to the current directory, then `packages/`
+(a small local registry shipped in this repo — `mathutils.bo`,
+`stringutils.bo`, `stats.bo`), then the same two locations relative to
+Bolt's own install directory, so it still works when Bolt is invoked from
+somewhere else entirely. Each module runs in its own isolated VM so its
+internal recursion and cross-function calls (e.g. `stats.bo`'s `stddev`
+calling `variance` calling `mean`) resolve correctly no matter which
+engine or VM instance calls into it from the outside — see
+`_wrap_module_closure` in `builtins.py` for why that needs a small
+wrapper rather than exposing the raw function. Imports are cached by
+path, so importing the same module twice runs it once.
+
+This is a real module system, not a package *manager* — there's no
+registry to publish to, no version resolution, no `bolt install`. It's a
+foothold for code reuse, not an ecosystem; see the comparison page for
+how far that gap still is. Not available when transpiling with
+`--target js` (fails with a clear error rather than generating broken
+JS, since `import` is itself a reserved word in JavaScript).
 
 ### Native compilation (`--native`)
 
@@ -284,15 +317,19 @@ src/bolt/
   native.py        AOT compiler: eligible functions -> C -> gcc -> ctypes
   jsgen.py         AST -> JavaScript transpiler, for the web target
   builtins.py      built-in functions, shared by both interpreting engines
-                    (incl. serve(), a real HTTP server via a call_fn callback
-                    that lets a builtin call back into Bolt code)
+                    (incl. serve(), a real HTTP server, and import(), a module
+                    loader - both via a call_fn callback that lets a builtin
+                    call back into Bolt code)
   errors.py        BoltSyntaxError / BoltRuntimeError / BoltTypeError / NativeCompileError
 cli.py             entry point: run, --engine vm|tree, --native, --target run|js, --no-typecheck
+packages/          the local package registry: mathutils.bo, stringutils.bo, stats.bo
 examples/          example .bo scripts (bench.bo/.py for benchmarking, typed.bo,
-                    tensor.bo, bench_native.bo for --native, webserver.bo for serve())
+                    tensor.bo, bench_native.bo for --native, webserver.bo for serve(),
+                    packages_demo.bo for import())
 tests/             pytest suite: lexer, parser, interpreter, VM, typechecker,
                     tensor, native (skipped if no gcc), JS transpiler (skipped if no node),
-                    webserver (spawns the CLI and makes real HTTP requests against it)
+                    webserver (spawns the CLI and makes real HTTP requests against it),
+                    packages (import() correctness, including cross-CWD resolution)
 ```
 
 ## Roadmap

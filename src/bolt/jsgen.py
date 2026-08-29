@@ -11,6 +11,11 @@ before this ever runs).
 import json
 
 from .ast_nodes import GetAttr, Index, Literal, Variable
+from .errors import BoltError
+
+
+class JSGenError(BoltError):
+    pass
 
 _BUILTIN_MAP = {
     "print": "nxPrint", "len": "nxLen", "range": "nxRange", "str": "nxStringify",
@@ -333,6 +338,11 @@ class JSGen:
         raise ValueError(f"unsupported operator {op}")
 
     def _expr_Call(self, expr):
+        if isinstance(expr.callee, Variable) and expr.callee.name == "import":
+            # "import" is a real reserved word in JS (dynamic import()), so
+            # silently emitting a call to it would produce syntactically
+            # valid but semantically wrong JS instead of a clear error.
+            raise JSGenError("import() is not supported by --target js (VM/tree-walker only)", expr.line)
         if isinstance(expr.callee, Variable) and expr.callee.name in _BUILTIN_MAP:
             callee = _BUILTIN_MAP[expr.callee.name]
         else:

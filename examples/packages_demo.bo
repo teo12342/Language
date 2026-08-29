@@ -1,0 +1,19 @@
+# Demonstrates Bolt's package system: import() loads another .bo file
+# as a module and returns a map of everything it defines.
+
+let math = import("packages/mathutils.bo")
+let strs = import("packages/stringutils.bo")
+let stats = import("packages/stats.bo")
+
+print(math.square(5))
+print(math.factorial(5))
+print(math.is_prime(17), math.is_prime(18))
+print(math.gcd(48, 18))
+
+print(strs.title_case("hello bolt world"))
+print(strs.is_palindrome("racecar"), strs.is_palindrome("bolt"))
+print(strs.pad_left("7", 4, "0"))
+
+print(stats.mean([1, 2, 3, 4, 5]))
+print(stats.median([5, 3, 1, 4, 2]))
+print(stats.stddev([2, 4, 4, 4, 5, 5, 7, 9]))
