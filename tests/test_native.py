@@ -140,3 +140,42 @@ def test_returns_int_for_whole_numbers():
     wrappers, _, _ = compile_native(stmts)
     assert wrappers["identity"](7) == 7
     assert isinstance(wrappers["identity"](7), int)
+
+
+def test_native_math_builtins():
+    stmts = parse(
+        """
+        func hypot(a: number, b: number): number {
+            return sqrt(a * a + b * b)
+        }
+        func clamp(x: number, lo: number, hi: number): number {
+            return min(max(x, lo), hi)
+        }
+        func rounded(x: number): number {
+            return floor(x) + ceil(x)
+        }
+        """
+    )
+    wrappers, compiled, skipped = compile_native(stmts)
+    assert set(compiled) == {"hypot", "clamp", "rounded"}
+    assert skipped == {}
+    assert abs(wrappers["hypot"](3, 5) - 5.830951894845301) < 1e-9
+    assert wrappers["clamp"](15, 0, 10) == 10
+    assert wrappers["clamp"](-5, 0, 10) == 0
+    assert wrappers["rounded"](3.2) == 7  # floor(3.2) + ceil(3.2) = 3 + 4
+
+
+def test_native_min_max_wrong_arity_is_skipped():
+    stmts = parse(
+        """
+        func f(a: number, b: number, c: number): number {
+            return min(a, b, c)
+        }
+        func g(x: number): number {
+            return x + 1
+        }
+        """
+    )
+    wrappers, compiled, skipped = compile_native(stmts)
+    assert compiled == ["g"]
+    assert "f" in skipped

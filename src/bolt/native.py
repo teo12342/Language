@@ -34,6 +34,20 @@ class _Unsupported(Exception):
 
 _COMPARE_OPS = {"==", "!=", "<", "<=", ">", ">="}
 
+# Bolt builtin name -> (C function from <math.h>, arity). These are safe to
+# inline directly since they're pure functions over doubles with no
+# allocation - unlike Bolt's own min()/max() (which accept a list or
+# varargs), the native versions require exactly this many plain arguments.
+_MATH_BUILTINS = {
+    "sqrt": ("sqrt", 1),
+    "abs": ("fabs", 1),
+    "floor": ("floor", 1),
+    "ceil": ("ceil", 1),
+    "pow": ("pow", 2),
+    "min": ("fmin", 2),
+    "max": ("fmax", 2),
+}
+
 
 class _CCompiler:
     def check_eligible(self, func: FuncStmt) -> str | None:
@@ -154,8 +168,15 @@ class _CCompiler:
         if kind == "Call":
             if not isinstance(expr.callee, Variable):
                 raise _Unsupported("only direct calls to named functions are supported")
+            name = expr.callee.name
+            if name in _MATH_BUILTINS:
+                if len(expr.args) != _MATH_BUILTINS[name][1]:
+                    raise _Unsupported(f"'{name}' in native code needs exactly {_MATH_BUILTINS[name][1]} argument(s)")
+                c_name = _MATH_BUILTINS[name][0]
+                args = ", ".join(self._emit_expr(a, known) for a in expr.args)
+                return f"{c_name}({args})"
             args = ", ".join(self._emit_expr(a, known) for a in expr.args)
-            return f"{expr.callee.name}({args})"
+            return f"{name}({args})"
         if kind == "Assign":
             if not isinstance(expr.target, Variable):
                 raise _Unsupported("only assignment to simple variables is supported")
@@ -166,6 +187,14 @@ class _CCompiler:
 def _wrap(cfunc):
     def wrapper(*args):
         result = cfunc(*(float(a) for a in args))
+        # C only has doubles, so a native result carries no int/float
+        # distinction - collapse whole numbers to int since that's the
+        # overwhelmingly common case (counters, indices, recursive
+        # arithmetic like fib()). The one known gap this creates: a
+        # function whose *interpreted* result is a genuine float that
+        # happens to be a whole number (e.g. sqrt(25) == 5.0) will print
+        # as "5" instead of "5.0" when run natively - the value is
+        # numerically identical either way, just displayed differently.
         return int(result) if float(result).is_integer() else result
     return wrapper
 

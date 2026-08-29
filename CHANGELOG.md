@@ -2,6 +2,30 @@
 
 All notable changes to Bolt, by version.
 
+## v0.9.0
+
+Closed two more gaps identified by Bolt's own weak categories (native
+compilation's narrow scope, and the JS transpiler's documented tensor
+gap):
+
+- **Native compiler**: `sqrt`, `abs`, `floor`, `ceil`, `pow`, `min`, `max`
+  (with exactly two arguments) are now callable from native-eligible
+  functions, mapped directly to their `<math.h>` C equivalents. Widens
+  what real code qualifies for AOT compilation.
+- **JS transpiler**: full tensor support (`tensor`, `zeros`, `dot`,
+  `matmul`, `transpose`, `identity`, `tmap`, and elementwise `+ - * /`)
+  plus the entire v0.8.0 standard library, all backed by matching runtime
+  prelude functions. This was an explicit, named gap in the README before
+  now; it's closed, with one honest caveat documented (JS has no
+  int/float distinction, so a numerically-whole float like `dot()`'s
+  result prints without a decimal point - same quirk native compilation
+  already has via C doubles).
+
+11 new tests (95 total, all passing): native math builtins verified with
+real ctypes calls, JS tensor/stdlib output verified by actually running
+the generated JS in Node and checking against known-correct values,
+including fractional inputs to prove the underlying math is exact.
+
 ## v0.8.0
 
 Grew the standard library, aimed directly at Bolt's two lowest-rated

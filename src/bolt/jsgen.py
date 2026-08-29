@@ -17,11 +17,77 @@ _BUILTIN_MAP = {
     "num": "nxNum", "type": "nxType", "push": "nxPush", "pop": "nxPop",
     "keys": "nxKeys", "upper": "nxUpper", "lower": "nxLower", "split": "nxSplit",
     "join": "nxJoin",
+    "sqrt": "nxSqrt", "abs": "Math.abs", "min": "nxMin", "max": "nxMax",
+    "floor": "Math.floor", "ceil": "Math.ceil", "round": "nxRound", "pow": "Math.pow",
+    "trim": "nxTrim", "replace": "nxReplace", "repeat": "nxRepeat",
+    "starts_with": "nxStartsWith", "ends_with": "nxEndsWith",
+    "contains": "nxContains", "index_of": "nxIndexOf", "sort": "nxSort",
+    "reverse": "nxReverse", "slice": "nxSlice", "concat": "nxConcat",
+    "tensor": "nxTensorFromNested", "zeros": "nxZeros", "dot": "nxDot",
+    "matmul": "nxMatmul", "tshape": "nxTshape", "tolist": "nxTensorToNested",
+    "tsum": "nxTsum", "transpose": "nxTranspose", "identity": "nxIdentity",
+    "tmap": "nxTmap",
 }
 
 _COMPARE_OPS = {"<", "<=", ">", ">="}
 
 _PRELUDE = """\
+// Tensors are plain objects {__isTensor:true, shape:[...], data:[...]} -
+// flat row-major storage, same layout as tensor.py's Python Tensor class.
+function nxIsTensor(v) { return typeof v === "object" && v !== null && v.__isTensor === true; }
+function nxTensorFromNested(nested) {
+  if (nested.length > 0 && Array.isArray(nested[0])) {
+    const rows = nested.length, cols = nested[0].length;
+    const data = [];
+    for (const row of nested) for (const x of row) data.push(x);
+    return { __isTensor: true, shape: [rows, cols], data };
+  }
+  return { __isTensor: true, shape: [nested.length], data: nested.slice() };
+}
+function nxTensorToNested(t) {
+  if (t.shape.length === 1) return t.data.slice();
+  const [rows, cols] = t.shape;
+  const out = [];
+  for (let r = 0; r < rows; r++) out.push(t.data.slice(r * cols, (r + 1) * cols));
+  return out;
+}
+function nxTensorElementwise(a, b, op) {
+  if (nxIsTensor(a) && nxIsTensor(b)) {
+    return { __isTensor: true, shape: a.shape, data: a.data.map((x, i) => op(x, b.data[i])) };
+  }
+  if (nxIsTensor(a)) return { __isTensor: true, shape: a.shape, data: a.data.map(x => op(x, b)) };
+  return { __isTensor: true, shape: b.shape, data: b.data.map(x => op(a, x)) };
+}
+function nxZeros(...dims) {
+  const n = dims.length === 1 ? dims[0] : dims[0] * dims[1];
+  return { __isTensor: true, shape: dims.length === 1 ? [dims[0]] : [dims[0], dims[1]], data: new Array(n).fill(0) };
+}
+function nxDot(a, b) { let s = 0; for (let i = 0; i < a.data.length; i++) s += a.data[i] * b.data[i]; return s; }
+function nxMatmul(a, b) {
+  const [m, k] = a.shape, n = b.shape[1];
+  const data = new Array(m * n).fill(0);
+  for (let i = 0; i < m; i++) for (let j = 0; j < n; j++) {
+    let s = 0;
+    for (let t = 0; t < k; t++) s += a.data[i * k + t] * b.data[t * n + j];
+    data[i * n + j] = s;
+  }
+  return { __isTensor: true, shape: [m, n], data };
+}
+function nxTranspose(t) {
+  const [rows, cols] = t.shape;
+  const data = new Array(rows * cols);
+  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) data[c * rows + r] = t.data[r * cols + c];
+  return { __isTensor: true, shape: [cols, rows], data };
+}
+function nxIdentity(n) {
+  const data = new Array(n * n).fill(0);
+  for (let i = 0; i < n; i++) data[i * n + i] = 1;
+  return { __isTensor: true, shape: [n, n], data };
+}
+function nxTshape(t) { return t.shape.slice(); }
+function nxTsum(t) { return t.data.reduce((a, b) => a + b, 0); }
+function nxTmap(t, fn) { return { __isTensor: true, shape: t.shape, data: t.data.map(x => fn(x)) }; }
+
 // Nested list/map printing mirrors Python's own repr() (which is what the
 // reference engines fall back on for container elements), so e.g. nested
 // booleans print as True/False and nested strings are quoted - matching
@@ -30,6 +96,7 @@ function nxRepr(v) {
   if (v === null || v === undefined) return "None";
   if (v === true) return "True";
   if (v === false) return "False";
+  if (nxIsTensor(v)) return "tensor" + nxRepr(nxTensorToNested(v));
   if (typeof v === "string") return "'" + v.replace(/\\\\/g, "\\\\\\\\").replace(/'/g, "\\\\'") + "'";
   if (Array.isArray(v)) return "[" + v.map(nxRepr).join(", ") + "]";
   if (typeof v === "object") return "{" + Object.entries(v).map(([k, val]) => `'${k}': ${nxRepr(val)}`).join(", ") + "}";
@@ -39,15 +106,51 @@ function nxStringify(v) {
   if (v === null || v === undefined) return "nil";
   if (v === true) return "true";
   if (v === false) return "false";
+  if (nxIsTensor(v)) return "tensor" + nxRepr(nxTensorToNested(v));
   if (Array.isArray(v)) return "[" + v.map(nxRepr).join(", ") + "]";
   if (typeof v === "object") return "{" + Object.entries(v).map(([k, val]) => `'${k}': ${nxRepr(val)}`).join(", ") + "}";
   return String(v);
 }
 function nxAdd(a, b) {
+  if (nxIsTensor(a) || nxIsTensor(b)) return nxTensorElementwise(a, b, (x, y) => x + y);
   if (typeof a === "string" || typeof b === "string") return nxStringify(a) + nxStringify(b);
   if (Array.isArray(a) && Array.isArray(b)) return a.concat(b);
   return a + b;
 }
+function nxSub(a, b) {
+  if (nxIsTensor(a) || nxIsTensor(b)) return nxTensorElementwise(a, b, (x, y) => x - y);
+  return a - b;
+}
+function nxMul(a, b) {
+  if (nxIsTensor(a) || nxIsTensor(b)) return nxTensorElementwise(a, b, (x, y) => x * y);
+  return a * b;
+}
+function nxDiv(a, b) {
+  if (nxIsTensor(a) || nxIsTensor(b)) return nxTensorElementwise(a, b, (x, y) => x / y);
+  return a / b;
+}
+function nxSqrt(x) { if (x < 0) throw new Error("sqrt() of a negative number"); return Math.sqrt(x); }
+function nxMin(...args) { const v = args.length === 1 && Array.isArray(args[0]) ? args[0] : args; return Math.min(...v); }
+function nxMax(...args) { const v = args.length === 1 && Array.isArray(args[0]) ? args[0] : args; return Math.max(...v); }
+function nxRound(x, digits) {
+  if (!digits) return Math.round(x);
+  const f = Math.pow(10, digits);
+  return Math.round(x * f) / f;
+}
+function nxTrim(s) { return s.trim(); }
+function nxReplace(s, oldS, newS) { return s.split(oldS).join(newS); }
+function nxRepeat(s, n) { return s.repeat(n); }
+function nxStartsWith(s, prefix) { return s.startsWith(prefix); }
+function nxEndsWith(s, suffix) { return s.endsWith(suffix); }
+function nxContains(container, item) {
+  if (typeof container === "string") return container.includes(item);
+  return container.includes(item);
+}
+function nxIndexOf(container, item) { return container.indexOf(item); }
+function nxSort(lst) { lst.sort((a, b) => (a > b ? 1 : a < b ? -1 : 0)); return lst; }
+function nxReverse(lst) { lst.reverse(); return lst; }
+function nxSlice(lst, start, end) { return end === undefined ? lst.slice(start) : lst.slice(start, end); }
+function nxConcat(a, b) { return Array.isArray(a) ? a.concat(b) : a + b; }
 function nxPrint(...args) { console.log(args.map(nxStringify).join(" ")); }
 function nxLen(x) { return x.length !== undefined ? x.length : Object.keys(x).length; }
 function nxRange(a, b, c) {
@@ -213,9 +316,15 @@ class JSGen:
         op = expr.op
         if op == "+":
             return f"nxAdd({left}, {right})"
+        if op == "-":
+            return f"nxSub({left}, {right})"
+        if op == "*":
+            return f"nxMul({left}, {right})"
+        if op == "/":
+            return f"nxDiv({left}, {right})"
         if op == "%":
             return f"({left} % {right})"
-        if op in ("-", "*", "/") or op in _COMPARE_OPS:
+        if op in _COMPARE_OPS:
             return f"({left} {op} {right})"
         if op == "==":
             return f"({left} === {right})"
