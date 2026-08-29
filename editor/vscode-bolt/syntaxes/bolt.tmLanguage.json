@@ -1,0 +1,69 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Bolt",
+  "scopeName": "source.bolt",
+  "fileTypes": ["bo"],
+  "patterns": [
+    { "include": "#comments" },
+    { "include": "#strings" },
+    { "include": "#numbers" },
+    { "include": "#keywords" },
+    { "include": "#types" },
+    { "include": "#constants" },
+    { "include": "#function-decl" },
+    { "include": "#function-call" },
+    { "include": "#operators" }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.number-sign.bolt",
+          "match": "#.*$"
+        }
+      ]
+    },
+    "strings": {
+      "name": "string.quoted.double.bolt",
+      "begin": "\"",
+      "end": "\"",
+      "patterns": [
+        {
+          "name": "constant.character.escape.bolt",
+          "match": "\\\\."
+        }
+      ]
+    },
+    "numbers": {
+      "name": "constant.numeric.bolt",
+      "match": "\\b\\d+(\\.\\d+)?\\b"
+    },
+    "keywords": {
+      "name": "keyword.control.bolt",
+      "match": "\\b(let|func|return|if|else|while|for|in|break|continue|and|or|not)\\b"
+    },
+    "types": {
+      "name": "storage.type.bolt",
+      "match": "(?<=:\\s?)\\b(number|string|bool|list|map|any|tensor)\\b"
+    },
+    "constants": {
+      "name": "constant.language.bolt",
+      "match": "\\b(true|false|nil)\\b"
+    },
+    "function-decl": {
+      "match": "\\b(func)\\s+([A-Za-z_][A-Za-z0-9_]*)\\b",
+      "captures": {
+        "1": { "name": "keyword.control.bolt" },
+        "2": { "name": "entity.name.function.bolt" }
+      }
+    },
+    "function-call": {
+      "match": "\\b([A-Za-z_][A-Za-z0-9_]*)\\s*(?=\\()",
+      "name": "entity.name.function.bolt"
+    },
+    "operators": {
+      "name": "keyword.operator.bolt",
+      "match": "(==|!=|<=|>=|=|\\+|-|\\*|/|%|<|>)"
+    }
+  }
+}

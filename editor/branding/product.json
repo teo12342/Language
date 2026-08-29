@@ -1,0 +1,26 @@
+{
+  "nameShort": "Bolt Studio",
+  "nameLong": "Bolt Studio",
+  "applicationName": "bolt-studio",
+  "dataFolderName": ".bolt-studio",
+  "win32MutexName": "boltstudio",
+  "win32DirName": "Bolt Studio",
+  "win32NameVersion": "Bolt Studio",
+  "win32AppId": "{{D1B1B1B1-B011-4B01-BOLT-000000000001}",
+  "win32x64AppId": "{{D1B1B1B1-B011-4B01-BOLT-000000000002}",
+  "win32UserAppId": "{{D1B1B1B1-B011-4B01-BOLT-000000000003}",
+  "win32x64UserAppId": "{{D1B1B1B1-B011-4B01-BOLT-000000000004}",
+  "darwinBundleIdentifier": "dev.bolt.studio",
+  "linuxIconName": "bolt-studio",
+  "licenseName": "MIT",
+  "urlProtocol": "bolt-studio",
+  "reportIssueUrl": "https://github.com/teo12342/Language/issues",
+  "quality": "stable",
+  "extensionsGallery": {},
+  "builtInExtensions": [
+    {
+      "name": "bolt-lang.bolt-lang",
+      "path": "../vscode-bolt"
+    }
+  ]
+}

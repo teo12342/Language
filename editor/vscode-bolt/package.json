@@ -1,0 +1,32 @@
+{
+  "name": "bolt-lang",
+  "displayName": "Bolt Language",
+  "description": "Syntax highlighting and language configuration for the Bolt programming language (.bo files).",
+  "version": "0.1.0",
+  "publisher": "bolt-lang",
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": ["Programming Languages"],
+  "contributes": {
+    "languages": [
+      {
+        "id": "bolt",
+        "aliases": ["Bolt", "bolt"],
+        "extensions": [".bo"],
+        "configuration": "./language-configuration.json",
+        "icon": {
+          "light": "./icons/bolt-light.svg",
+          "dark": "./icons/bolt-dark.svg"
+        }
+      }
+    ],
+    "grammars": [
+      {
+        "language": "bolt",
+        "scopeName": "source.bolt",
+        "path": "./syntaxes/bolt.tmLanguage.json"
+      }
+    ]
+  }
+}
