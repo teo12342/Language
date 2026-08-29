@@ -16,11 +16,5 @@
   "urlProtocol": "bolt-studio",
   "reportIssueUrl": "https://github.com/teo12342/Language/issues",
   "quality": "stable",
-  "extensionsGallery": {},
-  "builtInExtensions": [
-    {
-      "name": "bolt-lang.bolt-lang",
-      "path": "../vscode-bolt"
-    }
-  ]
+  "extensionsGallery": {}
 }
