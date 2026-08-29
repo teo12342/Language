@@ -42,21 +42,28 @@ class VM:
         return self._run(closure.proto, args, closure.upvalues)
 
     def _run(self, proto: FunctionProto, args: list, upvalues: list[Cell]):
-        locals_: list[Cell | None] = [Cell(a) for a in args]
+        locals_: list = [
+            (Cell(a) if boxed else a) for a, boxed in zip(args, proto.param_boxed)
+        ]
         locals_.extend([None] * (proto.num_locals - len(args)))
         code = proto.chunk.code
         constants = proto.chunk.constants
         stack: list = []
+        push = stack.append
+        pop = stack.pop
         ip = 0
+        _NUM = (int, float)
 
         while True:
             op, arg, line = code[ip]
             ip += 1
 
             if op == B.GET_LOCAL:
-                stack.append(locals_[arg].value)
+                push(locals_[arg].value)
+            elif op == B.GET_LOCAL_RAW:
+                push(locals_[arg])
             elif op == B.CONST:
-                stack.append(constants[arg])
+                push(constants[arg])
             elif op == B.CALL:
                 argc = arg
                 if argc:
@@ -64,7 +71,7 @@ class VM:
                     del stack[-argc:]
                 else:
                     call_args = []
-                callee = stack.pop()
+                callee = pop()
                 if isinstance(callee, Closure):
                     result = self.call_closure(callee, call_args, line)
                 elif callable(callee):
@@ -76,54 +83,75 @@ class VM:
                         raise NexusRuntimeError(str(e), line)
                 else:
                     raise NexusRuntimeError("Value is not callable", line)
-                stack.append(result)
+                push(result)
             elif op == B.ADD:
-                b_ = stack.pop()
-                a_ = stack.pop()
-                if isinstance(a_, Tensor) or isinstance(b_, Tensor):
+                b_ = pop()
+                a_ = pop()
+                ta, tb = type(a_), type(b_)
+                if (ta is int or ta is float) and (tb is int or tb is float):
+                    push(a_ + b_)
+                elif ta is Tensor or tb is Tensor:
                     try:
-                        stack.append(a_ + b_)
+                        push(a_ + b_)
                     except (ValueError, TypeError) as e:
                         raise NexusRuntimeError(str(e), line)
-                elif isinstance(a_, str) or isinstance(b_, str):
-                    stack.append(_stringify(a_) + _stringify(b_))
-                elif isinstance(a_, list) and isinstance(b_, list):
-                    stack.append(a_ + b_)
+                elif ta is str or tb is str:
+                    push(_stringify(a_) + _stringify(b_))
+                elif ta is list and tb is list:
+                    push(a_ + b_)
                 else:
                     _check_numbers(a_, b_, line)
-                    stack.append(a_ + b_)
+                    push(a_ + b_)
             elif op == B.SUB:
-                b_ = stack.pop(); a_ = stack.pop()
-                if isinstance(a_, Tensor) or isinstance(b_, Tensor):
+                b_ = pop(); a_ = pop()
+                ta, tb = type(a_), type(b_)
+                if (ta is int or ta is float) and (tb is int or tb is float):
+                    push(a_ - b_)
+                elif ta is Tensor or tb is Tensor:
                     try:
-                        stack.append(a_ - b_)
+                        push(a_ - b_)
                     except (ValueError, TypeError) as e:
                         raise NexusRuntimeError(str(e), line)
                 else:
                     _check_numbers(a_, b_, line)
-                    stack.append(a_ - b_)
+                    push(a_ - b_)
             elif op == B.MUL:
-                b_ = stack.pop(); a_ = stack.pop()
-                if isinstance(a_, Tensor) or isinstance(b_, Tensor):
+                b_ = pop(); a_ = pop()
+                ta, tb = type(a_), type(b_)
+                if (ta is int or ta is float) and (tb is int or tb is float):
+                    push(a_ * b_)
+                elif ta is Tensor or tb is Tensor:
                     try:
-                        stack.append(a_ * b_)
+                        push(a_ * b_)
                     except (ValueError, TypeError) as e:
                         raise NexusRuntimeError(str(e), line)
                 else:
                     _check_numbers(a_, b_, line)
-                    stack.append(a_ * b_)
+                    push(a_ * b_)
             elif op == B.LT:
-                b_ = stack.pop(); a_ = stack.pop()
+                b_ = pop(); a_ = pop()
+                ta, tb = type(a_), type(b_)
+                if (ta is int or ta is float) and (tb is int or tb is float):
+                    push(a_ < b_)
+                    continue
                 _check_numbers(a_, b_, line)
-                stack.append(a_ < b_)
+                push(a_ < b_)
             elif op == B.GT:
-                b_ = stack.pop(); a_ = stack.pop()
+                b_ = pop(); a_ = pop()
+                ta, tb = type(a_), type(b_)
+                if (ta is int or ta is float) and (tb is int or tb is float):
+                    push(a_ > b_)
+                    continue
                 _check_numbers(a_, b_, line)
-                stack.append(a_ > b_)
+                push(a_ > b_)
             elif op == B.SET_LOCAL:
                 locals_[arg].value = stack[-1]
+            elif op == B.SET_LOCAL_RAW:
+                locals_[arg] = stack[-1]
             elif op == B.INIT_LOCAL:
-                locals_[arg] = Cell(stack.pop())
+                locals_[arg] = Cell(pop())
+            elif op == B.INIT_LOCAL_RAW:
+                locals_[arg] = pop()
             elif op == B.JUMP:
                 ip = arg
             elif op == B.JUMP_IF_FALSE_POP:
@@ -156,13 +184,21 @@ class VM:
                 b_ = stack.pop(); a_ = stack.pop()
                 stack.append(a_ != b_)
             elif op == B.LTE:
-                b_ = stack.pop(); a_ = stack.pop()
+                b_ = pop(); a_ = pop()
+                ta, tb = type(a_), type(b_)
+                if (ta is int or ta is float) and (tb is int or tb is float):
+                    push(a_ <= b_)
+                    continue
                 _check_numbers(a_, b_, line)
-                stack.append(a_ <= b_)
+                push(a_ <= b_)
             elif op == B.GTE:
-                b_ = stack.pop(); a_ = stack.pop()
+                b_ = pop(); a_ = pop()
+                ta, tb = type(a_), type(b_)
+                if (ta is int or ta is float) and (tb is int or tb is float):
+                    push(a_ >= b_)
+                    continue
                 _check_numbers(a_, b_, line)
-                stack.append(a_ >= b_)
+                push(a_ >= b_)
             elif op == B.DIV:
                 b_ = stack.pop(); a_ = stack.pop()
                 if isinstance(a_, Tensor) or isinstance(b_, Tensor):

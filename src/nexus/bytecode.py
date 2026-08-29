@@ -39,6 +39,9 @@ FOR_ITER = 35
 CALL = 36
 CLOSURE = 37
 RETURN = 38
+GET_LOCAL_RAW = 39
+SET_LOCAL_RAW = 40
+INIT_LOCAL_RAW = 41
 
 
 @dataclass
@@ -65,3 +68,4 @@ class FunctionProto:
     chunk: Chunk
     upvalue_specs: list  # list of (is_local: bool, index: int)
     num_locals: int
+    param_boxed: list  # list[bool], one per parameter (len == arity)

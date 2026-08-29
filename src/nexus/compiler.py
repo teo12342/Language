@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields, is_dataclass
 
 from . import bytecode as B
 from .ast_nodes import (
@@ -15,11 +15,54 @@ _BINARY_OPS = {
 }
 
 
+def _collect_variable_names(node, out: set[str]):
+    """Recursively collects every Variable node's name anywhere under `node`."""
+    if isinstance(node, Variable):
+        out.add(node.name)
+    if is_dataclass(node):
+        for f in fields(node):
+            _collect_variable_names(getattr(node, f.name), out)
+    elif isinstance(node, list):
+        for item in node:
+            _collect_variable_names(item, out)
+
+
+def _collect_nested_functions(node, out: list):
+    if isinstance(node, (FuncStmt, FuncExpr)):
+        out.append(node)
+    if is_dataclass(node):
+        for f in fields(node):
+            _collect_nested_functions(getattr(node, f.name), out)
+    elif isinstance(node, list):
+        for item in node:
+            _collect_nested_functions(item, out)
+
+
+def _captured_names(body: list[Stmt]) -> set[str]:
+    """Names that MIGHT be captured by a closure defined anywhere inside `body`.
+
+    Deliberately conservative (over-approximates rather than under-): a name
+    referenced anywhere inside a nested function's own subtree counts, even
+    if it's really that nested function's own param/local of the same name.
+    A false positive here just means a slot gets boxed (in a Cell) when it
+    didn't strictly need to be - safe. A false negative would break closures,
+    so this never trims aggressively.
+    """
+    nested = []
+    for stmt in body:
+        _collect_nested_functions(stmt, nested)
+    names: set[str] = set()
+    for fn in nested:
+        _collect_variable_names(fn.body, names)
+    return names
+
+
 @dataclass
 class Local:
     name: str
     slot: int
     depth: int
+    boxed: bool = True
 
 
 @dataclass
@@ -29,7 +72,7 @@ class LoopCtx:
 
 
 class FuncCompilerCtx:
-    def __init__(self, parent, name, is_script=False):
+    def __init__(self, parent, name, is_script=False, captured_names: set[str] = frozenset()):
         self.parent = parent
         self.name = name
         self.is_script = is_script
@@ -39,6 +82,7 @@ class FuncCompilerCtx:
         self.next_slot = 0
         self.upvalues: list[tuple[bool, int]] = []
         self.loop_stack: list[LoopCtx] = []
+        self.captured_names = captured_names
 
     def emit(self, op, arg=None, line=0):
         return self.chunk.emit(op, arg, line)
@@ -46,12 +90,15 @@ class FuncCompilerCtx:
 
 class Compiler:
     def compile_script(self, statements: list[Stmt]) -> FunctionProto:
-        ctx = FuncCompilerCtx(parent=None, name="<script>", is_script=True)
+        ctx = FuncCompilerCtx(
+            parent=None, name="<script>", is_script=True,
+            captured_names=_captured_names(statements),
+        )
         for stmt in statements:
             self._stmt(ctx, stmt)
         ctx.emit(B.CONST, ctx.chunk.add_const(None), 0)
         ctx.emit(B.RETURN, None, 0)
-        return FunctionProto("<script>", 0, ctx.chunk, [], ctx.next_slot)
+        return FunctionProto("<script>", 0, ctx.chunk, [], ctx.next_slot, [])
 
     # ---- scope helpers ----
 
@@ -69,7 +116,8 @@ class Compiler:
             return ("global", name)
         slot = ctx.next_slot
         ctx.next_slot += 1
-        ctx.locals.append(Local(name, slot, ctx.scope_depth))
+        boxed = name in ctx.captured_names
+        ctx.locals.append(Local(name, slot, ctx.scope_depth, boxed=boxed))
         return ("local", slot)
 
     def _resolve_upvalue(self, ctx: FuncCompilerCtx, name: str):
@@ -93,7 +141,7 @@ class Compiler:
     def _load_var(self, ctx: FuncCompilerCtx, name: str, line: int):
         for local in reversed(ctx.locals):
             if local.name == name:
-                ctx.emit(B.GET_LOCAL, local.slot, line)
+                ctx.emit(B.GET_LOCAL if local.boxed else B.GET_LOCAL_RAW, local.slot, line)
                 return
         up = self._resolve_upvalue(ctx, name)
         if up is not None:
@@ -104,13 +152,17 @@ class Compiler:
     def _store_var(self, ctx: FuncCompilerCtx, name: str, line: int):
         for local in reversed(ctx.locals):
             if local.name == name:
-                ctx.emit(B.SET_LOCAL, local.slot, line)
+                ctx.emit(B.SET_LOCAL if local.boxed else B.SET_LOCAL_RAW, local.slot, line)
                 return
         up = self._resolve_upvalue(ctx, name)
         if up is not None:
             ctx.emit(B.SET_UPVALUE, up, line)
             return
         ctx.emit(B.SET_GLOBAL, name, line)
+
+    def _init_local(self, ctx: FuncCompilerCtx, slot: int, line: int):
+        boxed = ctx.locals[-1].boxed  # the Local just declared for this slot
+        ctx.emit(B.INIT_LOCAL if boxed else B.INIT_LOCAL_RAW, slot, line)
 
     # ---- statements ----
 
@@ -130,7 +182,7 @@ class Compiler:
         if kind == "global":
             ctx.emit(B.DEFINE_GLOBAL, val, stmt.line)
         else:
-            ctx.emit(B.INIT_LOCAL, val, stmt.line)
+            self._init_local(ctx, val, stmt.line)
 
     def _stmt_FuncStmt(self, ctx, stmt: FuncStmt):
         kind, val = self._declare(ctx, stmt.name)
@@ -138,7 +190,7 @@ class Compiler:
         if kind == "global":
             ctx.emit(B.DEFINE_GLOBAL, val, stmt.line)
         else:
-            ctx.emit(B.INIT_LOCAL, val, stmt.line)
+            self._init_local(ctx, val, stmt.line)
 
     def _stmt_ReturnStmt(self, ctx, stmt: ReturnStmt):
         if stmt.value is not None:
@@ -187,7 +239,7 @@ class Compiler:
         exit_jump = ctx.emit(B.FOR_ITER, None, stmt.line)
         self._begin_scope(ctx)
         kind, val = self._declare(ctx, stmt.var_name)
-        ctx.emit(B.INIT_LOCAL, val, stmt.line)
+        self._init_local(ctx, val, stmt.line)
         ctx.loop_stack.append(LoopCtx(continue_target=loop_start))
         for s in stmt.body:
             self._stmt(ctx, s)
@@ -218,14 +270,18 @@ class Compiler:
     # ---- function/closure compilation ----
 
     def _compile_function(self, ctx: FuncCompilerCtx, name, params, body, line):
-        fctx = FuncCompilerCtx(parent=ctx, name=name, is_script=False)
+        fctx = FuncCompilerCtx(
+            parent=ctx, name=name, is_script=False,
+            captured_names=_captured_names(body),
+        )
         for p in params:
             self._declare(fctx, p)
+        param_boxed = [local.boxed for local in fctx.locals[:len(params)]]
         for s in body:
             self._stmt(fctx, s)
         fctx.emit(B.CONST, fctx.chunk.add_const(None), line)
         fctx.emit(B.RETURN, None, line)
-        proto = FunctionProto(name, len(params), fctx.chunk, fctx.upvalues, fctx.next_slot)
+        proto = FunctionProto(name, len(params), fctx.chunk, fctx.upvalues, fctx.next_slot, param_boxed)
         idx = ctx.chunk.add_const(proto)
         ctx.emit(B.CLOSURE, idx, line)
 
