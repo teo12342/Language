@@ -5,6 +5,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
+from bolt import __version__
 from bolt.builtins import make_builtins
 from bolt.compiler import compile_program
 from bolt.errors import BoltError
@@ -80,6 +81,7 @@ def transpile_to_js(source: str, out_path: Path) -> int:
 
 def main():
     parser = argparse.ArgumentParser(description="Run or transpile a Bolt script")
+    parser.add_argument("--version", action="version", version=f"Bolt v{__version__}")
     parser.add_argument("script", help="Path to a .bo script")
     parser.add_argument(
         "--engine", choices=["vm", "tree"], default="vm",
