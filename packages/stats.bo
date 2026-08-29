@@ -1,0 +1,33 @@
+# stats: basic descriptive statistics, built on the standard library
+# (sort, sqrt, slice) rather than reimplementing them.
+
+func mean(nums) {
+    let total = 0
+    for x in nums {
+        total = total + x
+    }
+    return total / len(nums)
+}
+
+func variance(nums) {
+    let m = mean(nums)
+    let total = 0
+    for x in nums {
+        total = total + (x - m) * (x - m)
+    }
+    return total / len(nums)
+}
+
+func stddev(nums) {
+    return sqrt(variance(nums))
+}
+
+func median(nums) {
+    let sorted_nums = sort(concat(nums, []))  # copy first: sort() mutates in place
+    let n = len(sorted_nums)
+    let mid = floor(n / 2)
+    if n % 2 == 0 {
+        return (sorted_nums[mid - 1] + sorted_nums[mid]) / 2
+    }
+    return sorted_nums[mid]
+}

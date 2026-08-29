@@ -2,6 +2,36 @@
 
 All notable changes to Bolt, by version.
 
+## v0.10.0
+
+A real module system - the start of an actual answer to Bolt's lowest
+category, ecosystem/libraries, rather than just more built-ins:
+
+- New `import(path)` builtin: loads another `.bo` file as an isolated
+  module and returns a map of everything it defines at its own top
+  level (`let math = import("packages/mathutils.bo"); math.square(5)`).
+  Runs the module in its own VM so internal recursion and cross-function
+  calls resolve correctly regardless of which engine or VM instance
+  calls into it afterward (`_wrap_module_closure` in builtins.py).
+  Cached by path; resolved relative to the current directory, then
+  `packages/`, then the same two locations relative to Bolt's own
+  install directory (so it still works when invoked from elsewhere).
+- New `packages/` local registry with three real modules: `mathutils.bo`
+  (square, factorial, is_prime, gcd, ...), `stringutils.bo` (title_case,
+  is_palindrome, pad_left, ...), `stats.bo` (mean, median, variance,
+  stddev - built on the standard library, not reimplementing it).
+- Not available under `--target js` (JS reserves the `import` keyword
+  for its own dynamic import syntax; attempting it fails with a clear
+  compile-time error instead of generating broken JS).
+- Explicitly *not* a package manager: no registry to publish to, no
+  version resolution, no install step. A foothold for code reuse, not
+  an ecosystem.
+
+10 new tests (105 total): module functions callable from outside,
+intra-module recursion and multi-level cross-calls, both engines,
+caching, cross-working-directory resolution, missing-module errors,
+and the JS rejection path.
+
 ## v0.9.0
 
 Closed two more gaps identified by Bolt's own weak categories (native

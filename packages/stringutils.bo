@@ -1,0 +1,46 @@
+# stringutils: string helpers beyond the built-in trim/replace/repeat/etc.
+
+func title_case(s) {
+    let words = split(s, " ")
+    let result = []
+    for w in words {
+        if len(w) == 0 {
+            continue
+        }
+        push(result, upper(slice(w, 0, 1)) + lower(slice(w, 1)))
+    }
+    return join(result, " ")
+}
+
+func is_palindrome(s) {
+    let cleaned = lower(s)
+    let n = len(cleaned)
+    let i = 0
+    while i < n / 2 {
+        if slice(cleaned, i, i + 1) != slice(cleaned, n - 1 - i, n - i) {
+            return false
+        }
+        i = i + 1
+    }
+    return true
+}
+
+func count_char(s, ch) {
+    let count = 0
+    let i = 0
+    while i < len(s) {
+        if slice(s, i, i + 1) == ch {
+            count = count + 1
+        }
+        i = i + 1
+    }
+    return count
+}
+
+func pad_left(s, width, ch) {
+    let result = s
+    while len(result) < width {
+        result = ch + result
+    }
+    return result
+}

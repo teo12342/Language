@@ -1,5 +1,6 @@
 import http.server
 import math
+from pathlib import Path
 
 from .errors import BoltRuntimeError
 from .interpreter import _stringify
@@ -297,6 +298,98 @@ def _nx_concat(a, b):
     raise BoltRuntimeError("concat() expects two lists or two strings")
 
 
+# The repo/project root that ships packages/ (three levels up from this
+# file: src/bolt/builtins.py -> src/bolt -> src -> root). Used as a
+# fallback so import() still finds the local registry even when Bolt is
+# invoked from a different working directory.
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+
+
+def _resolve_module_path(path: str) -> Path:
+    candidates = [
+        Path(path),
+        Path("packages") / path,
+        _PROJECT_ROOT / path,
+        _PROJECT_ROOT / "packages" / path,
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    raise BoltRuntimeError(
+        f"Cannot find module '{path}' (looked in the current directory, packages/, "
+        "and the same locations relative to Bolt's own install directory)"
+    )
+
+
+def _wrap_module_closure(closure, owning_vm):
+    """Makes a module's exported Closure callable from a different engine
+    instance than the one that ran the module. A VM's global-name lookups
+    (GET_GLOBAL/recursion/etc.) resolve against *whichever* VM instance is
+    executing at CALL-time - so calling a module's Closure directly from
+    the importing script's own VM would incorrectly look up the module's
+    globals in the wrong VM. This wrapper always dispatches back through
+    the module's own VM, so a module's internal recursion/globals stay
+    correctly self-contained no matter who calls it.
+    """
+    def wrapper(*args):
+        return owning_vm.call_closure(closure, list(args), 0)
+    return wrapper
+
+
+def _make_import():
+    """import(path): load another .bo file as a module, once per path.
+
+    Runs the file in its own isolated VM (so its top-level names never
+    leak into or collide with the importing script's), then returns a
+    Bolt map of everything it defined at its own top level - so
+    `let math = import("packages/mathutils.bo")` then `math.square(3)`
+    works from either engine. Looked up relative to the current
+    directory first, then `packages/` (the local package registry).
+    Only the VM/tree-walker engines support import(); it isn't available
+    when transpiling with --target js.
+    """
+    cache: dict[str, dict] = {}
+
+    def _import(path):
+        if path in cache:
+            return cache[path]
+        # Imported lazily: builtins.py is the leaf of the package, and these
+        # modules would otherwise import it back (a cycle) since they're
+        # what wires builtins into an engine in the first place.
+        from .compiler import compile_program
+        from .lexer import Lexer
+        from .parser import Parser
+        from .typechecker import check_types
+        from .vm import VM, Closure
+
+        resolved = _resolve_module_path(path)
+        try:
+            source = resolved.read_text()
+            tokens = Lexer(source).tokenize()
+            stmts = Parser(tokens).parse()
+            check_types(stmts)
+            proto = compile_program(stmts)
+        except BoltRuntimeError:
+            raise
+        except Exception as e:
+            raise BoltRuntimeError(f"Error importing '{path}': {e}")
+
+        module_vm = VM(make_builtins())
+        base_keys = set(module_vm.globals.keys())
+        module_vm.run_program(proto)
+
+        exported = {}
+        for name, value in module_vm.globals.items():
+            if name in base_keys:
+                continue
+            exported[name] = _wrap_module_closure(value, module_vm) if isinstance(value, Closure) else value
+
+        cache[path] = exported
+        return exported
+
+    return _import
+
+
 def _make_serve(call_fn):
     """serve(port, handler, max_requests=1): a real HTTP server.
 
@@ -394,4 +487,5 @@ def make_builtins(call_fn=None) -> dict[str, object]:
         "slice": _nx_slice,
         "concat": _nx_concat,
         "serve": _make_serve(call_fn),
+        "import": _make_import(),
     }
