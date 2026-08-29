@@ -2,6 +2,33 @@
 
 All notable changes to Bolt, by version.
 
+## v0.14.0
+
+Fixed two real bugs in the native (`--native`) backend, found while
+investigating why native compilation was failing entirely on a machine
+that had MSVC but not gcc.
+
+- `--native` was hardcoded to invoke `gcc`, so it failed outright with
+  a raw `FileNotFoundError` traceback on any machine without gcc/MinGW
+  on PATH - a real gap on stock Windows dev machines that only have
+  Visual Studio installed. Now falls back to MSVC's `cl.exe` (found
+  via `vswhere`, environment harvested from `vcvars64.bat`) when gcc
+  isn't available, with a clear error only if neither compiler exists.
+- Emitted C functions used the Bolt function's own name as the C
+  symbol name directly, so a Bolt function named e.g. `hypot` silently
+  collided with `<math.h>`'s own `hypot` - gcc let this slide, MSVC
+  correctly rejected it (`C2375: redefinition; different linkage`).
+  All emitted C symbols are now namespaced (`bolt_fn_<name>`), so this
+  class of collision is no longer possible under any compiler.
+- Result: native compilation, which had been silently broken on this
+  machine, now genuinely works - `fib(30)` runs in ~0.005s of native
+  execution (excluding one-time compile time), matching C/C++ within
+  measurement noise, exactly as the language's own docs have always
+  claimed but this machine couldn't previously verify.
+- `tests/test_native.py`'s skip condition only checked for `gcc`; now
+  checks for either compiler, so its 11 tests actually run (and pass)
+  on MSVC-only machines instead of silently skipping.
+
 ## v0.13.0
 
 Closes the three gaps v0.12.0 explicitly called out: sprites, sound,
