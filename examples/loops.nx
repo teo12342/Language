@@ -1,0 +1,25 @@
+let total = 0
+let i = 0
+while i < 5 {
+    if i == 3 {
+        i = i + 1
+        continue
+    }
+    total = total + i
+    i = i + 1
+}
+print("while total:", total)
+
+let sum = 0
+for n in range(1, 11) {
+    if n > 7 {
+        break
+    }
+    sum = sum + n
+}
+print("for-break sum:", sum)
+
+let nums = [1, 2, 3, 4, 5]
+for n in nums {
+    print("item:", n)
+}

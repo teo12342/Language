@@ -1,0 +1,16 @@
+let name = "world"
+print("Hello, " + name + "!")
+
+let s = "Nexus Language"
+print(upper(s))
+print(lower(s))
+print(len(s))
+
+let parts = split("a,b,c", ",")
+print(parts)
+print(join(parts, "-"))
+
+let person = {"name": "Ada", "age": 36}
+print(person.name, "is", person["age"], "years old")
+person.age = 37
+print(person)
