@@ -2,6 +2,28 @@
 
 All notable changes to Bolt, by version.
 
+## v0.12.0
+
+First real step toward game development: an actual on-screen window
+Bolt code can draw to and read keyboard input from.
+
+- New `window(width, height, title="Bolt")` builtin: opens a real
+  window with a drawable canvas, backed by tkinter (ships with Python's
+  stdlib, no extra install) - the same "borrow the ecosystem" approach
+  as `pyimport()`, applied to graphics.
+- New drawing builtins: `clear(win, color)`, `rect(win, x, y, w, h,
+  color)`, `circle(win, x, y, r, color)`, `draw_text(win, x, y, msg,
+  color)`.
+- New `key(win, name)`: whether a key is currently held.
+- New `tick(win, fps=60)`: pumps the window's event loop, paces to the
+  target frame rate, and returns `false` once the window is closed -
+  `while tick(win, 60) { ... }` is the whole game loop.
+- New `close_window(win)`.
+- `examples/game_demo.bo`: a small playable demo (arrow keys to move a
+  square, Escape to quit), verified running end-to-end this session.
+- Deliberately minimal: solid shapes and text only, no sprites, sound,
+  or collision helpers yet - a real capability, not a game engine.
+
 ## v0.11.0
 
 A Python interop bridge - the shortcut approach to the ecosystem gap

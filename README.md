@@ -195,6 +195,11 @@ print(map.a)          # dot access also works on maps
 | `serve(port, handler, max_requests=1)` | Start a real HTTP server; see below |
 | `import(path)` | Load another `.bo` file as a module; see below |
 | `pyimport(name)` | Load an allowlisted Python standard-library module; see below |
+| `window(width, height, title="Bolt")` | Open a real on-screen window; see below |
+| `clear(win, color="black")` / `rect(win, x, y, w, h, color)` / `circle(win, x, y, r, color)` / `draw_text(win, x, y, msg, color)` | Draw to a window |
+| `key(win, name)` | Whether a key is currently held (e.g. `"left"`, `"space"`, `"escape"`) |
+| `tick(win, fps=60)` | Pump the window and pace to `fps`; `false` once the window is closed - the game-loop condition |
+| `close_window(win)` | Close a window |
 
 ### Built-in web server (`serve`)
 
@@ -289,6 +294,38 @@ exception raised by the called function surfaces as a normal
 identically on both engines; not available under `--target js`
 (transpiled output has no Python runtime to call into). See
 `examples/pyimport_demo.bo`.
+
+### Windows and game development (`window`)
+
+Bolt's first step toward game dev: `window()` opens a real, on-screen
+window with a drawable canvas and live keyboard input, so a Bolt script
+can be an actual small game, not a simulation of one.
+
+```
+let win = window(480, 320, "My Game")
+let x = 220
+
+while tick(win, 60) {
+    if key(win, "left") { x = x - 4 }
+    if key(win, "right") { x = x + 4 }
+
+    clear(win, "#171410")
+    rect(win, x, 140, 40, 40, "#e2895f")
+}
+```
+
+`window()` is backed by tkinter, which ships with Python's standard
+library — no extra install, same "borrow the ecosystem instead of
+rebuilding it" approach as `pyimport()`, applied to graphics instead of
+math/data. `tick(win, fps)` pumps the window's event loop, paces to the
+target frame rate, and returns `false` once the window is closed, so
+`while tick(win, 60) { ... }` is the whole game loop. See
+`examples/game_demo.bo` for a small playable demo (arrow keys to move a
+square, Escape to quit).
+
+Deliberately minimal: solid-color rectangles, circles, and text — no
+sprites/images, no sound, no collision helpers yet. A real step toward
+game dev, not a game engine.
 
 ### Native compilation (`--native`)
 
