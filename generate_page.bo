@@ -97,7 +97,7 @@ html = html + "</div></header>"
 
 html = html + "<section id=\"verdict\">"
 html = html + "<h2>fib(30), the number that matters most, first</h2>"
-html = html + "<p class=\"section-note\">Every language's raw speed on the same workload, before any of the category breakdowns below. C, C++, and Bolt (native) are all close enough to be noise; JavaScript and Python trail behind. Honesty note: C++ and Bolt's native number were both freshly measured this session; C, JS, and Python's are carried over from earlier in this project and have not been re-verified on this machine.</p>"
+html = html + "<p class=\"section-note\">Every language's raw speed on the same workload, before any of the category breakdowns below. C, C++, and Bolt (native) are all close enough to be noise; JavaScript and Python trail behind. Honesty note: C++ and Bolt's native number were freshly measured; C, JS, and Python's are carried over from earlier in this project and have not been re-verified on this machine.</p>"
 html = html + "<div class=\"verdict-strip\">"
 html = html + verdict_box("C", "0.003 s", "c", true)
 html = html + verdict_box("C++", "0.004 s", "cpp", true)
@@ -111,7 +111,7 @@ html = html + "<p class=\"section-note\">Each card below came from calling ratin
 html = html + "<div class=\"rating-grid\">"
 
 let card1_rows = [{"who": "C", "cls": "c", "score": 10, "best": true}, {"who": "C++", "cls": "cpp", "score": 10, "best": true}, {"who": "Bolt", "cls": "bolt", "score": 10, "best": true}, {"who": "JavaScript", "cls": "js", "score": 8, "best": false}, {"who": "Python", "cls": "python", "score": 5, "best": false}]
-html = html + rating_card("Raw execution speed", "fib(30), each language's own best/normal mode. C++'s 0.004s and Bolt's 0.005s (native execution only, excluding one-time compile) were both freshly measured this session, within noise of C's 0.003s - fixing a real bug in Bolt's native compiler (it silently failed on this machine before this session). Important caveat: Bolt's number only applies via the opt-in --native flag, on a narrow subset of number-only functions. Bolt's default engine, the bytecode VM everything else runs on, ran this same fib(30) in about 17 seconds on this machine - roughly 100x slower than Python. The 10/10 reflects Bolt's best case, not its typical case.", card1_rows)
+html = html + rating_card("Raw execution speed", "fib(30), each language's own best/normal mode. C++'s 0.004s and Bolt's 0.005s (native execution only, excluding one-time compile) were both freshly measured, within noise of C's 0.003s - fixing a real bug in Bolt's native compiler that had previously kept it from working on Windows without gcc. Important caveat: Bolt's number only applies via the opt-in --native flag, on a narrow subset of number-only functions. Bolt's default engine, the bytecode VM everything else runs on, ran this same fib(30) in about 17 seconds on this machine - roughly 100x slower than Python. The 10/10 reflects Bolt's best case, not its typical case.", card1_rows)
 
 let card2_rows = [{"who": "Bolt", "cls": "bolt", "score": 9, "best": true}, {"who": "C++", "cls": "cpp", "score": 3, "best": false}, {"who": "C", "cls": "c", "score": 3, "best": false}, {"who": "Python", "cls": "python", "score": 3, "best": false}, {"who": "JavaScript", "cls": "js", "score": 3, "best": false}]
 html = html + rating_card("Multiple execution backends, one project", "Interpreter, VM, native compiler, JS transpiler, and a web server, all one codebase. The other four tie at 3: each has multiple implementations (GCC/Clang/MSVC, CPython/PyPy, V8/SpiderMonkey), but as separate outside projects, not one project offering several paths - structurally the same situation for all four, so they get the same score.", card2_rows)
@@ -128,7 +128,7 @@ html = html + rating_card("Game development", "C++ is the unambiguous industry s
 html = html + "</div></section>"
 
 html = html + "<section id=\"chart\"><h2>fib(30), one bar per language</h2>"
-html = html + "<p class=\"section-note\">C++ and Bolt (native)'s numbers were both measured fresh this session. Python and JavaScript's are carried over from earlier work on this project and were not re-verified this session. Bolt's bar is native-execution-only (compile time excluded) on a narrow number-only-function subset via --native - not its default engine, which is dramatically slower (see the caveat above).</p>"
+html = html + "<p class=\"section-note\">C++ and Bolt (native)'s numbers were freshly measured. Python and JavaScript's are carried over from earlier work on this project and have not been re-verified. Bolt's bar is native-execution-only (compile time excluded) on a narrow number-only-function subset via --native - not its default engine, which is dramatically slower (see the caveat above).</p>"
 html = html + "<div class=\"chart\">"
 html = html + bar_row("Python", "python", "0.122 s", 100)
 html = html + bar_row("JavaScript", "js", "0.046 s", 38)

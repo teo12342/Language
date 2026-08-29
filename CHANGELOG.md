@@ -34,7 +34,7 @@ number-chasing exercise.
   Profiling confirmed 392,835 recursive Python calls for a single
   fib(26) run - and a Bolt script recursing ~1000 levels deep crashed
   outright with `RecursionError: maximum recursion depth exceeded`
-  (reproduced and confirmed on the pre-fix code this session).
+  (reproduced and confirmed on the pre-fix code).
 - Rewrote the VM's call/return handling to use an explicit frame stack
   (the same technique CPython's and Lua's own eval loops use) instead
   of Python recursion - a Bolt function call now pushes a saved frame
@@ -100,7 +100,7 @@ and collision.
   of unconnected features.
 - 103/103 existing tests still pass; all new capabilities smoke-tested
   end-to-end (real window, real sprite file, real collision, real
-  beep) this session.
+  beep).
 
 ## v0.12.0
 
@@ -120,7 +120,7 @@ Bolt code can draw to and read keyboard input from.
   `while tick(win, 60) { ... }` is the whole game loop.
 - New `close_window(win)`.
 - `examples/game_demo.bo`: a small playable demo (arrow keys to move a
-  square, Escape to quit), verified running end-to-end this session.
+  square, Escape to quit), verified running end-to-end.
 - Deliberately minimal: solid shapes and text only, no sprites, sound,
   or collision helpers yet - a real capability, not a game engine.
 
