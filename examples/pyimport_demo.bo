@@ -1,0 +1,15 @@
+# Calling straight into Python's standard library from Bolt.
+let math = pyimport("math")
+print(math.sqrt(64))
+print(math.gcd(48, 18))
+print(math.pi)
+
+let stats = pyimport("statistics")
+let nums = [4, 8, 15, 16, 23, 42]
+print(stats.mean(nums))
+print(stats.median(nums))
+print(stats.stdev(nums))
+
+let rand = pyimport("random")
+let r = rand.randint(1, 6)
+print(type(r), r >= 1 and r <= 6)
