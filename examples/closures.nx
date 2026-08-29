@@ -1,0 +1,21 @@
+func make_counter() {
+    let count = 0
+    func increment() {
+        count = count + 1
+        return count
+    }
+    return increment
+}
+
+let counter = make_counter()
+print(counter())
+print(counter())
+print(counter())
+
+let adder = func(x) {
+    return func(y) {
+        return x + y
+    }
+}
+let add5 = adder(5)
+print(add5(10))
