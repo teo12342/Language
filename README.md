@@ -133,7 +133,8 @@ yet), and `dict`/index access always types as `any`.
 
 `tensor(nested_list)` builds a dense 1-D or 2-D array; `+ - * /` work
 elementwise (against another tensor of the same shape, or a scalar), plus
-`dot`, `matmul`, `zeros`, `tshape`, `tolist`, `tsum`:
+`dot`, `matmul`, `transpose`, `identity`, `tmap`, `zeros`, `tshape`,
+`tolist`, `tsum`:
 
 ```
 let a: tensor = tensor([1, 2, 3])
@@ -144,6 +145,11 @@ print(dot(a, b))          # 32.0
 let m = tensor([[1, 2], [3, 4]])
 let n = tensor([[5, 6], [7, 8]])
 print(tolist(matmul(m, n)))   # [[19.0, 22.0], [43.0, 50.0]]
+print(tolist(transpose(m)))    # [[1.0, 3.0], [2.0, 4.0]]
+print(tolist(identity(2)))      # [[1.0, 0.0], [0.0, 1.0]]
+
+func square(x) { return x * x }
+print(tolist(tmap(a, square)))   # [1.0, 4.0, 9.0] - a Bolt function applied elementwise
 ```
 
 ### Data types
@@ -175,9 +181,17 @@ print(map.a)          # dot access also works on maps
 | `keys(map)` | List a map's keys |
 | `upper(s)` / `lower(s)` | String case conversion |
 | `split(s, sep)` / `join(list, sep)` | String/list conversion |
-| `tensor(nested)` / `zeros(...)` | Build a tensor |
-| `dot(a, b)` / `matmul(a, b)` | Tensor dot product / matrix multiply |
+| `sqrt(x)` / `abs(x)` / `min(...)` / `max(...)` | Basic math; `min`/`max` take either several args or one list |
+| `floor(x)` / `ceil(x)` / `round(x, digits=0)` / `pow(base, exp)` | More math |
+| `trim(s)` / `replace(s, old, new)` / `repeat(s, n)` | String utilities |
+| `starts_with(s, prefix)` / `ends_with(s, suffix)` | String prefix/suffix checks |
+| `contains(container, item)` / `index_of(container, item)` | Membership/search for a list or string (`index_of` returns `-1` if absent) |
+| `sort(list)` / `reverse(list)` | Mutate a list in place (also returned) |
+| `slice(list, start, end=None)` / `concat(a, b)` | Sublist, and list/list or string/string concatenation |
+| `tensor(nested)` / `zeros(...)` / `identity(n)` | Build a tensor |
+| `dot(a, b)` / `matmul(a, b)` / `transpose(t)` | Tensor dot product, matrix multiply, transpose |
 | `tshape(t)` / `tolist(t)` / `tsum(t)` | Tensor shape, back to a list, sum of elements |
+| `tmap(t, fn)` | Apply a Bolt function elementwise over a tensor |
 | `serve(port, handler, max_requests=1)` | Start a real HTTP server; see below |
 
 ### Built-in web server (`serve`)

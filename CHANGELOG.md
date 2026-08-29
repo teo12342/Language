@@ -2,6 +2,21 @@
 
 All notable changes to Bolt, by version.
 
+## v0.8.0
+
+Grew the standard library, aimed directly at Bolt's two lowest-rated
+categories (ecosystem/libraries, numeric computing) in its own comparison
+page - not everything a real package ecosystem gives you, but real,
+tested ground closed:
+
+- Math: `sqrt`, `abs`, `min`, `max`, `floor`, `ceil`, `round`, `pow`.
+- Strings: `trim`, `replace`, `repeat`, `starts_with`, `ends_with`.
+- Lists/general: `contains`, `index_of`, `sort`, `reverse`, `slice`,
+  `concat`.
+- Tensors: `transpose`, `identity`, and `tmap` (apply a Bolt function
+  elementwise over a tensor - the first builtin besides `serve()` to use
+  the `call_fn` callback mechanism).
+
 ## v0.7.0
 
 - Built-in web server: `serve(port, handler, max_requests)` starts a real
