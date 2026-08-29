@@ -4,6 +4,7 @@ from .ast_nodes import (
     Logical, MapLiteral, ReturnStmt, Unary, Variable, WhileStmt,
 )
 from .errors import NexusRuntimeError
+from .tensor import Tensor
 
 
 class Environment:
@@ -75,9 +76,12 @@ class _ContinueSignal(Exception):
 
 
 class Interpreter:
-    def __init__(self, builtins: dict[str, object] | None = None):
+    def __init__(self, builtins: dict[str, object] | None = None, native: dict[str, object] | None = None):
+        self._native = native or {}
         self.globals = Environment()
         for name, fn in (builtins or {}).items():
+            self.globals.define(name, fn)
+        for name, fn in self._native.items():
             self.globals.define(name, fn)
 
     def run(self, statements: list):
@@ -101,6 +105,8 @@ class Interpreter:
         env.define(stmt.name, value)
 
     def _stmt_FuncStmt(self, stmt: FuncStmt, env: Environment):
+        if env is self.globals and stmt.name in self._native:
+            return  # keep the native override already seeded into globals
         func = NexusFunction(stmt.name, stmt.params, stmt.body, env)
         env.define(stmt.name, func)
 
@@ -218,6 +224,11 @@ class Interpreter:
         line = expr.line
 
         if op == "+":
+            if isinstance(left, Tensor) or isinstance(right, Tensor):
+                try:
+                    return left + right
+                except (ValueError, TypeError) as e:
+                    raise NexusRuntimeError(str(e), line)
             if isinstance(left, str) or isinstance(right, str):
                 return _stringify(left) + _stringify(right)
             if isinstance(left, list) and isinstance(right, list):
@@ -225,12 +236,27 @@ class Interpreter:
             _check_numbers(left, right, line)
             return left + right
         if op == "-":
+            if isinstance(left, Tensor) or isinstance(right, Tensor):
+                try:
+                    return left - right
+                except (ValueError, TypeError) as e:
+                    raise NexusRuntimeError(str(e), line)
             _check_numbers(left, right, line)
             return left - right
         if op == "*":
+            if isinstance(left, Tensor) or isinstance(right, Tensor):
+                try:
+                    return left * right
+                except (ValueError, TypeError) as e:
+                    raise NexusRuntimeError(str(e), line)
             _check_numbers(left, right, line)
             return left * right
         if op == "/":
+            if isinstance(left, Tensor) or isinstance(right, Tensor):
+                try:
+                    return left / right
+                except (ValueError, TypeError, ZeroDivisionError) as e:
+                    raise NexusRuntimeError(str(e), line)
             _check_numbers(left, right, line)
             if right == 0:
                 raise NexusRuntimeError("Division by zero", line)
