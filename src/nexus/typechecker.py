@@ -18,7 +18,7 @@ from .ast_nodes import (
 from .errors import NexusTypeError
 
 ANY = "any"
-KNOWN_TYPES = {"number", "string", "bool", "nil", "list", "map", "func", ANY}
+KNOWN_TYPES = {"number", "string", "bool", "nil", "list", "map", "func", "tensor", ANY}
 
 _NUMBER_OPS = {"-", "*", "/", "%"}
 _COMPARE_OPS = {"<", "<=", ">", ">="}
@@ -224,6 +224,14 @@ class TypeChecker:
         left = self._expr(expr.left, scope)
         right = self._expr(expr.right, scope)
         op = expr.op
+
+        if left == "tensor" or right == "tensor":
+            # Tensor arithmetic (elementwise +-*/ against another tensor or
+            # a scalar) is checked at runtime by tensor.py, not here.
+            if op in ("+", "-", "*", "/") and (left in (ANY, "tensor", "number")) and (right in (ANY, "tensor", "number")):
+                return "tensor"
+            if op in _COMPARE_OPS or op in ("==", "!="):
+                return "bool"
 
         if op == "+":
             if left == "string" or right == "string":

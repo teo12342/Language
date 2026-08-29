@@ -2,6 +2,7 @@ from . import bytecode as B
 from .bytecode import FunctionProto
 from .errors import NexusRuntimeError
 from .interpreter import _check_numbers, _check_number, _is_truthy, _stringify
+from .tensor import Tensor
 
 
 class Cell:
@@ -23,8 +24,10 @@ class Closure:
 
 
 class VM:
-    def __init__(self, builtins: dict[str, object] | None = None):
+    def __init__(self, builtins: dict[str, object] | None = None, native: dict[str, object] | None = None):
+        self._native = native or {}
         self.globals: dict[str, object] = dict(builtins or {})
+        self.globals.update(self._native)
 
     def run_program(self, script_proto: FunctionProto):
         self._run(script_proto, [], [])
@@ -77,7 +80,12 @@ class VM:
             elif op == B.ADD:
                 b_ = stack.pop()
                 a_ = stack.pop()
-                if isinstance(a_, str) or isinstance(b_, str):
+                if isinstance(a_, Tensor) or isinstance(b_, Tensor):
+                    try:
+                        stack.append(a_ + b_)
+                    except (ValueError, TypeError) as e:
+                        raise NexusRuntimeError(str(e), line)
+                elif isinstance(a_, str) or isinstance(b_, str):
                     stack.append(_stringify(a_) + _stringify(b_))
                 elif isinstance(a_, list) and isinstance(b_, list):
                     stack.append(a_ + b_)
@@ -86,12 +94,24 @@ class VM:
                     stack.append(a_ + b_)
             elif op == B.SUB:
                 b_ = stack.pop(); a_ = stack.pop()
-                _check_numbers(a_, b_, line)
-                stack.append(a_ - b_)
+                if isinstance(a_, Tensor) or isinstance(b_, Tensor):
+                    try:
+                        stack.append(a_ - b_)
+                    except (ValueError, TypeError) as e:
+                        raise NexusRuntimeError(str(e), line)
+                else:
+                    _check_numbers(a_, b_, line)
+                    stack.append(a_ - b_)
             elif op == B.MUL:
                 b_ = stack.pop(); a_ = stack.pop()
-                _check_numbers(a_, b_, line)
-                stack.append(a_ * b_)
+                if isinstance(a_, Tensor) or isinstance(b_, Tensor):
+                    try:
+                        stack.append(a_ * b_)
+                    except (ValueError, TypeError) as e:
+                        raise NexusRuntimeError(str(e), line)
+                else:
+                    _check_numbers(a_, b_, line)
+                    stack.append(a_ * b_)
             elif op == B.LT:
                 b_ = stack.pop(); a_ = stack.pop()
                 _check_numbers(a_, b_, line)
@@ -122,7 +142,9 @@ class VM:
                     raise NexusRuntimeError(f"Undefined variable '{arg}'", line)
                 self.globals[arg] = stack[-1]
             elif op == B.DEFINE_GLOBAL:
-                self.globals[arg] = stack.pop()
+                value = stack.pop()
+                if arg not in self._native:
+                    self.globals[arg] = value
             elif op == B.GET_UPVALUE:
                 stack.append(upvalues[arg].value)
             elif op == B.SET_UPVALUE:
@@ -143,6 +165,12 @@ class VM:
                 stack.append(a_ >= b_)
             elif op == B.DIV:
                 b_ = stack.pop(); a_ = stack.pop()
+                if isinstance(a_, Tensor) or isinstance(b_, Tensor):
+                    try:
+                        stack.append(a_ / b_)
+                    except (ValueError, TypeError, ZeroDivisionError) as e:
+                        raise NexusRuntimeError(str(e), line)
+                    continue
                 _check_numbers(a_, b_, line)
                 if b_ == 0:
                     raise NexusRuntimeError("Division by zero", line)

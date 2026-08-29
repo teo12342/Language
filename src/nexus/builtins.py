@@ -1,5 +1,8 @@
 from .errors import NexusRuntimeError
 from .interpreter import _stringify
+from .tensor import Tensor
+from .tensor import dot as _tensor_dot
+from .tensor import matmul as _tensor_matmul
 
 
 def _nx_print(*args):
@@ -86,6 +89,63 @@ def _nx_join(lst, sep):
     return sep.join(_stringify(x) for x in lst)
 
 
+def _nx_tensor(nested):
+    if not isinstance(nested, list):
+        raise NexusRuntimeError("tensor() expects a list")
+    try:
+        return Tensor.from_nested(nested)
+    except ValueError as e:
+        raise NexusRuntimeError(str(e))
+
+
+def _nx_zeros(*dims):
+    try:
+        dims = [int(d) for d in dims]
+    except (TypeError, ValueError):
+        raise NexusRuntimeError("zeros() expects numeric dimensions")
+    if len(dims) == 1:
+        return Tensor((dims[0],), [0.0] * dims[0])
+    if len(dims) == 2:
+        return Tensor((dims[0], dims[1]), [0.0] * (dims[0] * dims[1]))
+    raise NexusRuntimeError("zeros() supports 1 or 2 dimensions")
+
+
+def _nx_dot(a, b):
+    if not isinstance(a, Tensor) or not isinstance(b, Tensor):
+        raise NexusRuntimeError("dot() expects two tensors")
+    try:
+        return _tensor_dot(a, b)
+    except ValueError as e:
+        raise NexusRuntimeError(str(e))
+
+
+def _nx_matmul(a, b):
+    if not isinstance(a, Tensor) or not isinstance(b, Tensor):
+        raise NexusRuntimeError("matmul() expects two tensors")
+    try:
+        return _tensor_matmul(a, b)
+    except ValueError as e:
+        raise NexusRuntimeError(str(e))
+
+
+def _nx_tshape(t):
+    if not isinstance(t, Tensor):
+        raise NexusRuntimeError("tshape() expects a tensor")
+    return list(t.shape)
+
+
+def _nx_tolist(t):
+    if not isinstance(t, Tensor):
+        raise NexusRuntimeError("tolist() expects a tensor")
+    return t.to_nested()
+
+
+def _nx_tsum(t):
+    if not isinstance(t, Tensor):
+        raise NexusRuntimeError("tsum() expects a tensor")
+    return sum(t.data)
+
+
 def make_builtins() -> dict[str, object]:
     return {
         "print": _nx_print,
@@ -101,4 +161,11 @@ def make_builtins() -> dict[str, object]:
         "lower": _nx_lower,
         "split": _nx_split,
         "join": _nx_join,
+        "tensor": _nx_tensor,
+        "zeros": _nx_zeros,
+        "dot": _nx_dot,
+        "matmul": _nx_matmul,
+        "tshape": _nx_tshape,
+        "tolist": _nx_tolist,
+        "tsum": _nx_tsum,
     }

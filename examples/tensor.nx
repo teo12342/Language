@@ -1,0 +1,20 @@
+# Numeric/tensor support: dense arrays with elementwise ops, dot, matmul.
+
+let a: tensor = tensor([1, 2, 3])
+let b: tensor = tensor([4, 5, 6])
+
+print(tolist(a + b))
+print(tolist(a * b))
+print(dot(a, b))
+
+let m: tensor = tensor([[1, 2], [3, 4]])
+let n: tensor = tensor([[5, 6], [7, 8]])
+print(tolist(matmul(m, n)))
+
+let z: tensor = zeros(2, 3)
+print(tshape(z))
+print(tolist(z + 1))
+
+let scaled: tensor = a * 10
+print(tolist(scaled))
+print(tsum(scaled))
