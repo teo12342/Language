@@ -19,6 +19,8 @@ backend for hot numeric code, and a JavaScript transpiler for the web.
   included. Everything else in the script keeps running on the VM/interpreter.
 - **JavaScript transpiler** (`--target js`) — compiles the AST directly to a
   standalone `.js` file that runs in Node or a browser with no dependencies.
+- **Built-in web server** (`serve`) — a Bolt script can now serve real,
+  dynamic HTTP responses directly, no external framework required.
 
 ## Quick start
 
@@ -27,6 +29,7 @@ python cli.py examples/fibonacci.bo                 # bytecode VM (default)
 python cli.py --engine tree examples/fibonacci.bo    # tree-walking interpreter
 python cli.py --native examples/bench_native.bo      # AOT-compile eligible functions
 python cli.py --target js examples/fibonacci.bo      # write fibonacci.js, then: node fibonacci.js
+python cli.py examples/webserver.bo                  # start a real HTTP server (see below)
 ```
 
 No dependencies are required to run scripts (the native backend needs
@@ -175,6 +178,35 @@ print(map.a)          # dot access also works on maps
 | `tensor(nested)` / `zeros(...)` | Build a tensor |
 | `dot(a, b)` / `matmul(a, b)` | Tensor dot product / matrix multiply |
 | `tshape(t)` / `tolist(t)` / `tsum(t)` | Tensor shape, back to a list, sum of elements |
+| `serve(port, handler, max_requests=1)` | Start a real HTTP server; see below |
+
+### Built-in web server (`serve`)
+
+```
+func page(path) {
+    if path == "/" {
+        return "<h1>Hello from Bolt</h1>"
+    }
+    return "<h1>404</h1><p>No page at " + path + "</p>"
+}
+
+serve(8080, page, 3)   # answers 3 requests, then stops; pass 0 to run forever
+```
+
+`serve` starts a real `HTTPServer` on `port` and calls `handler(path)` once
+per incoming GET request — the request path is a normal Bolt string, and
+whatever the handler returns becomes the HTTP response body, so every page
+can be computed live by Bolt code (different content per path, no static
+files needed). `max_requests` bounds how many requests to answer before
+returning, which defaults to `1` so a demo/test run doesn't hang forever;
+pass `0` to run like a normal, indefinitely-running server. Works
+identically on both the VM and the tree-walking interpreter — verified end
+to end with real HTTP requests in `tests/test_webserver.py`, not just a
+generated response inspected offline.
+
+This is intentionally minimal (no routing table, no request body/headers,
+GET only) — a starting point for "Bolt can serve a page" rather than a web
+framework. See `examples/webserver.bo`.
 
 ### Native compilation (`--native`)
 
@@ -226,12 +258,15 @@ src/bolt/
   native.py        AOT compiler: eligible functions -> C -> gcc -> ctypes
   jsgen.py         AST -> JavaScript transpiler, for the web target
   builtins.py      built-in functions, shared by both interpreting engines
+                    (incl. serve(), a real HTTP server via a call_fn callback
+                    that lets a builtin call back into Bolt code)
   errors.py        BoltSyntaxError / BoltRuntimeError / BoltTypeError / NativeCompileError
 cli.py             entry point: run, --engine vm|tree, --native, --target run|js, --no-typecheck
 examples/          example .bo scripts (bench.bo/.py for benchmarking, typed.bo,
-                    tensor.bo, bench_native.bo for --native)
+                    tensor.bo, bench_native.bo for --native, webserver.bo for serve())
 tests/             pytest suite: lexer, parser, interpreter, VM, typechecker,
-                    tensor, native (skipped if no gcc), JS transpiler (skipped if no node)
+                    tensor, native (skipped if no gcc), JS transpiler (skipped if no node),
+                    webserver (spawns the CLI and makes real HTTP requests against it)
 ```
 
 ## Roadmap
@@ -252,7 +287,13 @@ written for v1 still run unchanged today:
 5. ~~**Web target**~~ — transpiles to plain JavaScript, verified by actually
    running the output in Node against the same test cases.
 
-What's next is refining what's here rather than adding new backends:
-tensor element types and list/map generics for the type checker, widening
-what the native compiler accepts (loops over ranges, more operators),
-and closing the small JS semantic gaps noted above.
+Beyond the original five, first step toward Bolt being usable for real web
+work: a built-in `serve()` that runs a real HTTP server and answers
+requests with Bolt-computed HTML (`examples/webserver.bo`). Deliberately
+minimal today (GET-only, no routing table, no request body/headers) — a
+foothold, not a framework.
+
+Next: tensor element types and list/map generics for the type checker,
+widening what the native compiler accepts, closing the small JS semantic
+gaps noted above, and growing `serve()` toward something closer to an
+actual micro web framework (routes, POST bodies, static file serving).

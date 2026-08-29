@@ -1,3 +1,5 @@
+import http.server
+
 from .errors import BoltRuntimeError
 from .interpreter import _stringify
 from .tensor import Tensor
@@ -146,7 +148,59 @@ def _nx_tsum(t):
     return sum(t.data)
 
 
-def make_builtins() -> dict[str, object]:
+def _make_serve(call_fn):
+    """serve(port, handler, max_requests=1): a real HTTP server.
+
+    `handler` is a Bolt function taking a request path (string) and
+    returning the response body (string) - called once per request via
+    `call_fn`, so the response can be different for every path, computed
+    by actual Bolt code. `max_requests` bounds how many requests to
+    answer before returning (0 means run forever, like a normal server);
+    it defaults to 1 so a script doesn't hang a test/demo run forever.
+    """
+
+    def _serve(port, handler, max_requests=1):
+        if call_fn is None:
+            raise BoltRuntimeError("serve() is not available in this context")
+
+        class _Server(http.server.HTTPServer):
+            allow_reuse_address = True
+
+        class _Handler(http.server.BaseHTTPRequestHandler):
+            def do_GET(self):
+                try:
+                    body = call_fn(handler, [self.path])
+                except BoltRuntimeError as e:
+                    self.send_response(500)
+                    self.end_headers()
+                    self.wfile.write(str(e).encode("utf-8"))
+                    return
+                body_bytes = _stringify(body).encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.send_header("Content-Length", str(len(body_bytes)))
+                self.end_headers()
+                self.wfile.write(body_bytes)
+
+            def log_message(self, format, *args):
+                pass  # keep the Bolt script's own output clean
+
+        httpd = _Server(("127.0.0.1", int(port)), _Handler)
+        try:
+            n = int(max_requests)
+            if n <= 0:
+                httpd.serve_forever()
+            else:
+                for _ in range(n):
+                    httpd.handle_request()
+        finally:
+            httpd.server_close()
+        return None
+
+    return _serve
+
+
+def make_builtins(call_fn=None) -> dict[str, object]:
     return {
         "print": _nx_print,
         "len": _nx_len,
@@ -168,4 +222,5 @@ def make_builtins() -> dict[str, object]:
         "tshape": _nx_tshape,
         "tolist": _nx_tolist,
         "tsum": _nx_tsum,
+        "serve": _make_serve(call_fn),
     }
