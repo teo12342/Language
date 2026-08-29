@@ -1,13 +1,21 @@
 # Nexus
 
 Nexus is a small, general-purpose scripting language with clean, readable
-syntax. This is v1: a tree-walking interpreter written in Python, built to
-be easy to read and extend as the language grows.
+syntax, implemented in Python. It now has two execution engines sharing the
+same lexer/parser/AST front end:
+
+- **Bytecode VM** (default) — compiles the AST to bytecode (constant pool,
+  resolved local/global/upvalue slots, jump-patched control flow) and runs
+  it on a stack machine. ~1.7x faster than the tree-walker.
+- **Tree-walking interpreter** — the original v1 engine, walks the AST
+  directly. Kept as a reference implementation and for comparing engine
+  behavior; both engines are tested against the same test cases.
 
 ## Quick start
 
 ```bash
-python cli.py examples/fibonacci.nx
+python cli.py examples/fibonacci.nx                 # bytecode VM (default)
+python cli.py --engine tree examples/fibonacci.nx    # tree-walking interpreter
 ```
 
 No dependencies are required to run scripts. Running the test suite needs
@@ -116,20 +124,26 @@ src/nexus/
   parser.py        recursive-descent parser -> AST
   ast_nodes.py     AST node definitions
   interpreter.py   tree-walking evaluator (environments, closures, control flow)
-  builtins.py      built-in functions
+  bytecode.py      opcodes, Chunk, and FunctionProto for the VM engine
+  compiler.py      AST -> bytecode compiler (locals/globals/upvalue resolution,
+                    jump patching for control flow)
+  vm.py            stack-based bytecode VM (Cell/Closure runtime types)
+  builtins.py      built-in functions, shared by both engines
   errors.py        NexusSyntaxError / NexusRuntimeError, with line numbers
-cli.py             entry point: `python cli.py script.nx`
-examples/          example .nx scripts
-tests/             pytest unit tests for each stage of the pipeline
+cli.py             entry point: `python cli.py script.nx [--engine vm|tree]`
+examples/          example .nx scripts, incl. bench.nx / bench.py for benchmarking
+tests/             pytest suite covering the lexer, parser, interpreter, and VM
 ```
 
 ## Roadmap
 
-This v1 intentionally favors a simple, correct, easy-to-extend interpreter
-over performance. Future phases, roughly in order:
+This v1 intentionally favors a simple, correct, easy-to-extend implementation
+over raw performance. Future phases, roughly in order:
 
-1. **Bytecode VM** — compile the AST to bytecode and run it on a stack
-   machine, for a significant speed-up over tree-walking.
+1. ~~**Bytecode VM**~~ — done. Compiles the AST to bytecode and runs it on a
+   stack machine; ~1.7x faster than tree-walking on the benchmark suite.
+   Next optimization step would be a proper opcode dispatch table and
+   avoiding per-instruction Python-object overhead, before reaching for (2).
 2. **Optional static typing** — gradual type annotations and a type
    checker, without giving up dynamic-language ergonomics.
 3. **Numeric/tensor support** — native array/tensor types and vectorized
