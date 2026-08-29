@@ -72,8 +72,15 @@ class VM:
                 else:
                     call_args = []
                 callee = pop()
-                if isinstance(callee, Closure):
-                    result = self.call_closure(callee, call_args, line)
+                if type(callee) is Closure:
+                    cproto = callee.proto
+                    if len(call_args) != cproto.arity:
+                        raise NexusRuntimeError(
+                            f"Function '{cproto.name or '<anonymous>'}' expected "
+                            f"{cproto.arity} argument(s) but got {len(call_args)}",
+                            line,
+                        )
+                    result = self._run(cproto, call_args, callee.upvalues)
                 elif callable(callee):
                     try:
                         result = callee(*call_args)
@@ -162,13 +169,16 @@ class VM:
             elif op == B.POP:
                 stack.pop()
             elif op == B.GET_GLOBAL:
-                if arg not in self.globals:
+                try:
+                    push(self.globals[arg])
+                except KeyError:
                     raise NexusRuntimeError(f"Undefined variable '{arg}'", line)
-                stack.append(self.globals[arg])
             elif op == B.SET_GLOBAL:
-                if arg not in self.globals:
+                g = self.globals
+                if arg in g:
+                    g[arg] = stack[-1]
+                else:
                     raise NexusRuntimeError(f"Undefined variable '{arg}'", line)
-                self.globals[arg] = stack[-1]
             elif op == B.DEFINE_GLOBAL:
                 value = stack.pop()
                 if arg not in self._native:

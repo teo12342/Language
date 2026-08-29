@@ -2,11 +2,11 @@
 
 Eligible: top-level `func` declarations whose parameters and return type
 are all annotated `number`, whose bodies only use arithmetic, comparisons,
-if/while/return, and calls to other eligible functions (including
-themselves, for recursion) - no strings, lists, maps, tensors, or
-closures. This mirrors how real interpreters (PyPy, LuaJIT, V8's
-TurboFan) carve out a fast-path subset instead of natively compiling
-every language feature at once.
+if/while/`for x in range(...)`/return, and calls to other eligible
+functions (including themselves, for recursion) - no strings, lists, maps,
+tensors, closures, or break/continue. This mirrors how real interpreters
+(PyPy, LuaJIT, V8's TurboFan) carve out a fast-path subset instead of
+natively compiling every language feature at once.
 
 Compiled functions are handed back as plain Python callables (backed by
 a ctypes-loaded .so) that can be dropped straight into a VM's or
@@ -20,7 +20,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-from .ast_nodes import Assign, FuncStmt, Variable
+from .ast_nodes import Assign, Call, FuncStmt, Variable
 from .errors import NexusError
 
 
@@ -92,7 +92,34 @@ class _CCompiler:
             cond = self._emit_expr(stmt.condition, known)
             body_c = self._emit_block(stmt.body, set(known))
             return f"while ({cond}) {{\n{body_c}\n}}"
+        if kind == "ForStmt":
+            return self._emit_for(stmt, known)
         raise _Unsupported(f"unsupported statement: {kind}")
+
+    def _emit_for(self, stmt, known: set) -> str:
+        call = stmt.iterable
+        if not isinstance(call, Call) or not isinstance(call.callee, Variable) or call.callee.name != "range":
+            raise _Unsupported("native 'for' loops only support 'for x in range(...)'")
+        if not (1 <= len(call.args) <= 3):
+            raise _Unsupported("range() takes 1 to 3 arguments")
+        c_args = [self._emit_expr(a, known) for a in call.args]
+        if len(c_args) == 1:
+            start, stop, step = "0.0", c_args[0], "1.0"
+        elif len(c_args) == 2:
+            start, stop, step = c_args[0], c_args[1], "1.0"
+        else:
+            start, stop, step = c_args
+
+        inner_known = set(known)
+        inner_known.add(stmt.var_name)
+        body_c = self._emit_block(stmt.body, inner_known)
+        v = stmt.var_name
+        # step's sign decides the loop direction, matching range()'s semantics.
+        return (
+            f"for (double {v} = ({start}); "
+            f"(({step}) >= 0) ? ({v} < ({stop})) : ({v} > ({stop})); "
+            f"{v} += ({step})) {{\n{body_c}\n}}"
+        )
 
     def _emit_expr(self, expr, known: set) -> str:
         kind = type(expr).__name__
