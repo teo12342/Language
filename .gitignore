@@ -4,3 +4,4 @@ __pycache__/
 examples/*.js
 *.so
 *.c
+editor/.vscodium-src/
