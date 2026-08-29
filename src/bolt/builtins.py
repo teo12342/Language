@@ -468,6 +468,131 @@ def _make_pyimport():
     return _pyimport
 
 
+class _BoltWindow:
+    """A real, on-screen window with a drawable canvas and keyboard input,
+    backed by tkinter (ships with Python's stdlib - no extra install, same
+    "borrow the ecosystem" spirit as pyimport(), but for game dev instead
+    of math/data). Bolt code never sees this class - only opaque handles
+    returned by window() and passed back into the drawing functions below.
+    """
+
+    def __init__(self, width, height, title):
+        import tkinter as tk
+
+        self.width = int(width)
+        self.height = int(height)
+        self.closed = False
+        self._last_tick = None
+
+        self.root = tk.Tk()
+        self.root.title(str(title))
+        self.root.resizable(False, False)
+        self.canvas = tk.Canvas(
+            self.root, width=self.width, height=self.height,
+            bg="black", highlightthickness=0,
+        )
+        self.canvas.pack()
+
+        self.keys_down: set[str] = set()
+        self.root.protocol("WM_DELETE_WINDOW", self._on_close)
+        self.root.bind("<KeyPress>", lambda e: self.keys_down.add(e.keysym.lower()))
+        self.root.bind("<KeyRelease>", lambda e: self.keys_down.discard(e.keysym.lower()))
+
+    def _on_close(self):
+        self.closed = True
+        try:
+            self.root.destroy()
+        except Exception:
+            pass
+
+    def __str__(self):
+        state = "closed" if self.closed else "open"
+        return f"<window {self.width}x{self.height} {state}>"
+
+
+def _require_open_window(win, fn_name):
+    if not isinstance(win, _BoltWindow):
+        raise BoltRuntimeError(f"{fn_name}() expects a window handle from window()")
+    return not win.closed
+
+
+def _make_window():
+    def _window(width, height, title="Bolt"):
+        return _BoltWindow(width, height, title)
+
+    return _window
+
+
+def _clear(win, color="black"):
+    if not _require_open_window(win, "clear"):
+        return None
+    win.canvas.delete("all")
+    win.canvas.configure(bg=color)
+    return None
+
+
+def _rect(win, x, y, w, h, color="white"):
+    if not _require_open_window(win, "rect"):
+        return None
+    win.canvas.create_rectangle(x, y, x + w, y + h, fill=color, outline="")
+    return None
+
+
+def _circle(win, x, y, r, color="white"):
+    if not _require_open_window(win, "circle"):
+        return None
+    win.canvas.create_oval(x - r, y - r, x + r, y + r, fill=color, outline="")
+    return None
+
+
+def _draw_text(win, x, y, msg, color="white"):
+    if not _require_open_window(win, "draw_text"):
+        return None
+    win.canvas.create_text(x, y, text=_stringify(msg), fill=color, anchor="nw")
+    return None
+
+
+def _key(win, name):
+    if not isinstance(win, _BoltWindow):
+        raise BoltRuntimeError("key() expects a window handle from window()")
+    return str(name).lower() in win.keys_down
+
+
+def _tick(win, fps=60):
+    """Pumps the window's event loop, draws the current frame, and paces
+    to `fps`. Returns false once the window has been closed - the natural
+    `while tick(win, 60) { ... }` game-loop condition.
+    """
+    import time
+
+    if not isinstance(win, _BoltWindow):
+        raise BoltRuntimeError("tick() expects a window handle from window()")
+    if win.closed:
+        return False
+    try:
+        win.root.update()
+    except Exception:
+        win.closed = True
+        return False
+    if win.closed:
+        return False
+
+    frame_time = 1.0 / max(1.0, float(fps))
+    now = time.perf_counter()
+    if win._last_tick is not None:
+        remaining = frame_time - (now - win._last_tick)
+        if remaining > 0:
+            time.sleep(remaining)
+    win._last_tick = time.perf_counter()
+    return True
+
+
+def _close_window(win):
+    if isinstance(win, _BoltWindow):
+        win._on_close()
+    return None
+
+
 def _make_serve(call_fn):
     """serve(port, handler, max_requests=1): a real HTTP server.
 
@@ -567,4 +692,12 @@ def make_builtins(call_fn=None) -> dict[str, object]:
         "serve": _make_serve(call_fn),
         "import": _make_import(),
         "pyimport": _make_pyimport(),
+        "window": _make_window(),
+        "clear": _clear,
+        "rect": _rect,
+        "circle": _circle,
+        "draw_text": _draw_text,
+        "key": _key,
+        "tick": _tick,
+        "close_window": _close_window,
     }
