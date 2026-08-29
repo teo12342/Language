@@ -71,29 +71,40 @@ class Parser:
     def _let_statement(self) -> Stmt:
         line = self._previous().line
         name = self._consume(T.IDENTIFIER, "Expected variable name after 'let'").lexeme
+        type_annotation = None
+        if self._match(T.COLON):
+            type_annotation = self._consume(T.IDENTIFIER, "Expected type name after ':'").lexeme
         initializer = None
         if self._match(T.EQ):
             initializer = self._expression()
         self._end_statement()
-        return LetStmt(name, initializer, line)
+        return LetStmt(name, initializer, line, type_annotation=type_annotation)
 
     def _func_statement(self) -> Stmt:
         line = self._previous().line
         name = self._consume(T.IDENTIFIER, "Expected function name").lexeme
-        params = self._param_list()
+        params, param_types = self._typed_param_list()
+        return_type = None
+        if self._match(T.COLON):
+            return_type = self._consume(T.IDENTIFIER, "Expected return type after ':'").lexeme
         body = self._block()
-        return FuncStmt(name, params, body, line)
+        return FuncStmt(name, params, body, line, param_types=param_types, return_type=return_type)
 
-    def _param_list(self) -> list[str]:
+    def _typed_param_list(self) -> tuple[list[str], list[str | None]]:
         self._consume(T.LPAREN, "Expected '(' after function name")
-        params = []
+        params: list[str] = []
+        param_types: list[str | None] = []
         if not self._check(T.RPAREN):
             while True:
                 params.append(self._consume(T.IDENTIFIER, "Expected parameter name").lexeme)
+                if self._match(T.COLON):
+                    param_types.append(self._consume(T.IDENTIFIER, "Expected type name after ':'").lexeme)
+                else:
+                    param_types.append(None)
                 if not self._match(T.COMMA):
                     break
         self._consume(T.RPAREN, "Expected ')' after parameters")
-        return params
+        return params, param_types
 
     def _block(self) -> list[Stmt]:
         self._consume(T.LBRACE, "Expected '{'")
@@ -293,9 +304,12 @@ class Parser:
         if self._match(T.IDENTIFIER):
             return Variable(self._previous().lexeme, tok.line)
         if self._match(T.FUNC):
-            params = self._param_list()
+            params, param_types = self._typed_param_list()
+            return_type = None
+            if self._match(T.COLON):
+                return_type = self._consume(T.IDENTIFIER, "Expected return type after ':'").lexeme
             body = self._block()
-            return FuncExpr(params, body, tok.line)
+            return FuncExpr(params, body, tok.line, param_types=param_types, return_type=return_type)
         if self._match(T.LPAREN):
             expr = self._expression()
             self._consume(T.RPAREN, "Expected ')' after expression")

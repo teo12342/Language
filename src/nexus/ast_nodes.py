@@ -97,6 +97,8 @@ class FuncExpr(Expr):
     body: list[Stmt]
     line: int
     name: str | None = None
+    param_types: list[str | None] = field(default_factory=list)
+    return_type: str | None = None
 
 
 # ---- Statements ----
@@ -112,6 +114,7 @@ class LetStmt(Stmt):
     name: str
     initializer: Expr | None
     line: int
+    type_annotation: str | None = None
 
 
 @dataclass
@@ -120,6 +123,8 @@ class FuncStmt(Stmt):
     params: list[str]
     body: list[Stmt]
     line: int
+    param_types: list[str | None] = field(default_factory=list)
+    return_type: str | None = None
 
 
 @dataclass

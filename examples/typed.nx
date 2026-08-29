@@ -1,0 +1,23 @@
+# Gradual typing: annotate what you want checked, leave the rest dynamic.
+
+func add(a: number, b: number): number {
+    return a + b
+}
+
+func greet(name: string): string {
+    return "Hello, " + name + "!"
+}
+
+let total: number = add(2, 3)
+print(total)
+print(greet("Nexus"))
+
+# Untyped code is completely unaffected - still fully dynamic.
+let anything = "start as a string"
+anything = 42
+anything = [1, 2, 3]
+print(anything)
+
+# Mixing string + number in '+' is allowed (matches runtime auto-stringify),
+# so this type-checks even though the operand types differ.
+print("count: " + total)
