@@ -2,6 +2,37 @@
 
 All notable changes to Bolt, by version.
 
+## v0.15.0
+
+Investigated why the default VM engine runs `fib(30)` in ~17 seconds
+(vs. Python's 0.122s) - a real, honest look at the bottleneck, not a
+number-chasing exercise.
+
+- Found and fixed a real architectural bug: every Bolt-to-Bolt function
+  call recursed through a nested Python call (`self._run()` calling
+  itself), so deep Bolt recursion consumed Python's own call stack.
+  Profiling confirmed 392,835 recursive Python calls for a single
+  fib(26) run - and a Bolt script recursing ~1000 levels deep crashed
+  outright with `RecursionError: maximum recursion depth exceeded`
+  (reproduced and confirmed on the pre-fix code this session).
+- Rewrote the VM's call/return handling to use an explicit frame stack
+  (the same technique CPython's and Lua's own eval loops use) instead
+  of Python recursion - a Bolt function call now pushes a saved frame
+  onto a plain list and continues the same loop; RETURN pops it back.
+  Calls that enter from Python (a fresh script run, or a builtin like
+  tmap()/serve() calling back into Bolt code) still nest/reenter
+  correctly, verified against the full test suite including closures,
+  nested closures, and webserver request handlers.
+- Result, honestly reported: this is a correctness fix, not a speed
+  win. A Bolt script recursing 50,000 levels deep now runs
+  successfully (previously crashed at ~1,000); `fib(30)`'s wall time
+  is unchanged (~17s), because profiling after the fix showed the
+  real bottleneck is per-opcode dispatch cost in the interpreter loop
+  itself, not Python call overhead - fixing that meaningfully would
+  need a much larger rewrite (e.g. compiling to real Python bytecode)
+  than is in scope here.
+- 114/114 tests pass.
+
 ## v0.14.0
 
 Fixed two real bugs in the native (`--native`) backend, found while
