@@ -10,7 +10,7 @@ func greet(name: string): string {
 
 let total: number = add(2, 3)
 print(total)
-print(greet("Nexus"))
+print(greet("Bolt"))
 
 # Untyped code is completely unaffected - still fully dynamic.
 let anything = "start as a string"

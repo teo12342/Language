@@ -4,9 +4,9 @@ import sys
 
 import pytest
 
-from nexus.jsgen import generate_js
-from nexus.lexer import Lexer
-from nexus.parser import Parser
+from bolt.jsgen import generate_js
+from bolt.lexer import Lexer
+from bolt.parser import Parser
 
 pytestmark = pytest.mark.skipif(shutil.which("node") is None, reason="node not available")
 

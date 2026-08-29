@@ -3,11 +3,11 @@ import sys
 
 import pytest
 
-from nexus.builtins import make_builtins
-from nexus.errors import NexusRuntimeError
-from nexus.interpreter import Interpreter
-from nexus.lexer import Lexer
-from nexus.parser import Parser
+from bolt.builtins import make_builtins
+from bolt.errors import BoltRuntimeError
+from bolt.interpreter import Interpreter
+from bolt.lexer import Lexer
+from bolt.parser import Parser
 
 
 def run(source, builtins=None):
@@ -105,12 +105,12 @@ def test_break_and_continue():
 
 
 def test_undefined_variable_raises():
-    with pytest.raises(NexusRuntimeError):
+    with pytest.raises(BoltRuntimeError):
         run("print(missing)")
 
 
 def test_division_by_zero_raises():
-    with pytest.raises(NexusRuntimeError):
+    with pytest.raises(BoltRuntimeError):
         run("print(1 / 0)")
 
 

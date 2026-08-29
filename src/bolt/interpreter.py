@@ -3,7 +3,7 @@ from .ast_nodes import (
     FuncExpr, FuncStmt, GetAttr, IfStmt, Index, LetStmt, ListLiteral, Literal,
     Logical, MapLiteral, ReturnStmt, Unary, Variable, WhileStmt,
 )
-from .errors import NexusRuntimeError
+from .errors import BoltRuntimeError
 from .tensor import Tensor
 
 
@@ -23,7 +23,7 @@ class Environment:
             if name in env.values:
                 return env.values[name]
             env = env.parent
-        raise NexusRuntimeError(f"Undefined variable '{name}'", line)
+        raise BoltRuntimeError(f"Undefined variable '{name}'", line)
 
     def set(self, name: str, value: object, line: int):
         env = self
@@ -32,10 +32,10 @@ class Environment:
                 env.values[name] = value
                 return
             env = env.parent
-        raise NexusRuntimeError(f"Undefined variable '{name}'", line)
+        raise BoltRuntimeError(f"Undefined variable '{name}'", line)
 
 
-class NexusFunction:
+class BoltFunction:
     def __init__(self, name, params, body, closure: Environment):
         self.name = name
         self.params = params
@@ -44,7 +44,7 @@ class NexusFunction:
 
     def call(self, interpreter: "Interpreter", args: list, line: int):
         if len(args) != len(self.params):
-            raise NexusRuntimeError(
+            raise BoltRuntimeError(
                 f"Function '{self.name or '<anonymous>'}' expected {len(self.params)} "
                 f"argument(s) but got {len(args)}",
                 line,
@@ -107,7 +107,7 @@ class Interpreter:
     def _stmt_FuncStmt(self, stmt: FuncStmt, env: Environment):
         if env is self.globals and stmt.name in self._native:
             return  # keep the native override already seeded into globals
-        func = NexusFunction(stmt.name, stmt.params, stmt.body, env)
+        func = BoltFunction(stmt.name, stmt.params, stmt.body, env)
         env.define(stmt.name, func)
 
     def _stmt_ReturnStmt(self, stmt: ReturnStmt, env: Environment):
@@ -134,7 +134,7 @@ class Interpreter:
         try:
             items = iter(iterable)
         except TypeError:
-            raise NexusRuntimeError(f"Value is not iterable", stmt.line)
+            raise BoltRuntimeError(f"Value is not iterable", stmt.line)
         for item in items:
             loop_env = Environment(env)
             loop_env.define(stmt.var_name, item)
@@ -186,15 +186,15 @@ class Interpreter:
             try:
                 obj[key] = value
             except (TypeError, IndexError) as e:
-                raise NexusRuntimeError(str(e), expr.line)
+                raise BoltRuntimeError(str(e), expr.line)
         elif isinstance(target, GetAttr):
             obj = self._evaluate(target.obj, env)
             if isinstance(obj, dict):
                 obj[target.name] = value
             else:
-                raise NexusRuntimeError("Cannot set attribute on this value", expr.line)
+                raise BoltRuntimeError("Cannot set attribute on this value", expr.line)
         else:
-            raise NexusRuntimeError("Invalid assignment target", expr.line)
+            raise BoltRuntimeError("Invalid assignment target", expr.line)
         return value
 
     def _expr_Unary(self, expr: Unary, env: Environment):
@@ -204,7 +204,7 @@ class Interpreter:
             return -right
         if expr.op == "not":
             return not _is_truthy(right)
-        raise NexusRuntimeError(f"Unknown unary operator '{expr.op}'", expr.line)
+        raise BoltRuntimeError(f"Unknown unary operator '{expr.op}'", expr.line)
 
     def _expr_Logical(self, expr: Logical, env: Environment):
         left = self._evaluate(expr.left, env)
@@ -228,7 +228,7 @@ class Interpreter:
                 try:
                     return left + right
                 except (ValueError, TypeError) as e:
-                    raise NexusRuntimeError(str(e), line)
+                    raise BoltRuntimeError(str(e), line)
             if isinstance(left, str) or isinstance(right, str):
                 return _stringify(left) + _stringify(right)
             if isinstance(left, list) and isinstance(right, list):
@@ -240,7 +240,7 @@ class Interpreter:
                 try:
                     return left - right
                 except (ValueError, TypeError) as e:
-                    raise NexusRuntimeError(str(e), line)
+                    raise BoltRuntimeError(str(e), line)
             _check_numbers(left, right, line)
             return left - right
         if op == "*":
@@ -248,7 +248,7 @@ class Interpreter:
                 try:
                     return left * right
                 except (ValueError, TypeError) as e:
-                    raise NexusRuntimeError(str(e), line)
+                    raise BoltRuntimeError(str(e), line)
             _check_numbers(left, right, line)
             return left * right
         if op == "/":
@@ -256,16 +256,16 @@ class Interpreter:
                 try:
                     return left / right
                 except (ValueError, TypeError, ZeroDivisionError) as e:
-                    raise NexusRuntimeError(str(e), line)
+                    raise BoltRuntimeError(str(e), line)
             _check_numbers(left, right, line)
             if right == 0:
-                raise NexusRuntimeError("Division by zero", line)
+                raise BoltRuntimeError("Division by zero", line)
             result = left / right
             return result
         if op == "%":
             _check_numbers(left, right, line)
             if right == 0:
-                raise NexusRuntimeError("Modulo by zero", line)
+                raise BoltRuntimeError("Modulo by zero", line)
             return left % right
         if op == "==":
             return left == right
@@ -283,21 +283,21 @@ class Interpreter:
         if op == ">=":
             _check_numbers(left, right, line)
             return left >= right
-        raise NexusRuntimeError(f"Unknown operator '{op}'", line)
+        raise BoltRuntimeError(f"Unknown operator '{op}'", line)
 
     def _expr_Call(self, expr: Call, env: Environment):
         callee = self._evaluate(expr.callee, env)
         args = [self._evaluate(a, env) for a in expr.args]
-        if isinstance(callee, NexusFunction):
+        if isinstance(callee, BoltFunction):
             return callee.call(self, args, expr.line)
         if callable(callee):
             try:
                 return callee(*args)
-            except NexusRuntimeError:
+            except BoltRuntimeError:
                 raise
             except Exception as e:
-                raise NexusRuntimeError(str(e), expr.line)
-        raise NexusRuntimeError("Value is not callable", expr.line)
+                raise BoltRuntimeError(str(e), expr.line)
+        raise BoltRuntimeError("Value is not callable", expr.line)
 
     def _expr_Index(self, expr: Index, env: Environment):
         obj = self._evaluate(expr.obj, env)
@@ -305,18 +305,18 @@ class Interpreter:
         try:
             return obj[key]
         except (KeyError, IndexError):
-            raise NexusRuntimeError(f"Index/key {key!r} not found", expr.line)
+            raise BoltRuntimeError(f"Index/key {key!r} not found", expr.line)
         except TypeError as e:
-            raise NexusRuntimeError(str(e), expr.line)
+            raise BoltRuntimeError(str(e), expr.line)
 
     def _expr_GetAttr(self, expr: GetAttr, env: Environment):
         obj = self._evaluate(expr.obj, env)
         if isinstance(obj, dict) and expr.name in obj:
             return obj[expr.name]
-        raise NexusRuntimeError(f"No attribute '{expr.name}'", expr.line)
+        raise BoltRuntimeError(f"No attribute '{expr.name}'", expr.line)
 
     def _expr_FuncExpr(self, expr: FuncExpr, env: Environment):
-        return NexusFunction(expr.name, expr.params, expr.body, env)
+        return BoltFunction(expr.name, expr.params, expr.body, env)
 
 
 def _is_truthy(value) -> bool:
@@ -331,7 +331,7 @@ def _is_truthy(value) -> bool:
 
 def _check_number(value, line):
     if not isinstance(value, (int, float)) or isinstance(value, bool):
-        raise NexusRuntimeError(f"Expected a number, got {type(value).__name__}", line)
+        raise BoltRuntimeError(f"Expected a number, got {type(value).__name__}", line)
 
 
 def _check_numbers(left, right, line):

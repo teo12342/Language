@@ -1,4 +1,4 @@
-from .errors import NexusRuntimeError
+from .errors import BoltRuntimeError
 from .interpreter import _stringify
 from .tensor import Tensor
 from .tensor import dot as _tensor_dot
@@ -14,7 +14,7 @@ def _nx_len(value):
     try:
         return len(value)
     except TypeError:
-        raise NexusRuntimeError(f"len() not supported for {type(value).__name__}")
+        raise BoltRuntimeError(f"len() not supported for {type(value).__name__}")
 
 
 def _nx_range(*args):
@@ -24,7 +24,7 @@ def _nx_range(*args):
         return list(range(int(args[0]), int(args[1])))
     if len(args) == 3:
         return list(range(int(args[0]), int(args[1]), int(args[2])))
-    raise NexusRuntimeError("range() expects 1 to 3 arguments")
+    raise BoltRuntimeError("range() expects 1 to 3 arguments")
 
 
 def _nx_str(value):
@@ -35,7 +35,7 @@ def _nx_num(value):
     try:
         return float(value) if isinstance(value, str) and "." in value else int(value)
     except (TypeError, ValueError):
-        raise NexusRuntimeError(f"Cannot convert {value!r} to number")
+        raise BoltRuntimeError(f"Cannot convert {value!r} to number")
 
 
 def _nx_type(value):
@@ -56,20 +56,20 @@ def _nx_type(value):
 
 def _nx_push(lst, value):
     if not isinstance(lst, list):
-        raise NexusRuntimeError("push() expects a list")
+        raise BoltRuntimeError("push() expects a list")
     lst.append(value)
     return lst
 
 
 def _nx_pop(lst):
     if not isinstance(lst, list) or not lst:
-        raise NexusRuntimeError("pop() expects a non-empty list")
+        raise BoltRuntimeError("pop() expects a non-empty list")
     return lst.pop()
 
 
 def _nx_keys(m):
     if not isinstance(m, dict):
-        raise NexusRuntimeError("keys() expects a map")
+        raise BoltRuntimeError("keys() expects a map")
     return list(m.keys())
 
 
@@ -91,58 +91,58 @@ def _nx_join(lst, sep):
 
 def _nx_tensor(nested):
     if not isinstance(nested, list):
-        raise NexusRuntimeError("tensor() expects a list")
+        raise BoltRuntimeError("tensor() expects a list")
     try:
         return Tensor.from_nested(nested)
     except ValueError as e:
-        raise NexusRuntimeError(str(e))
+        raise BoltRuntimeError(str(e))
 
 
 def _nx_zeros(*dims):
     try:
         dims = [int(d) for d in dims]
     except (TypeError, ValueError):
-        raise NexusRuntimeError("zeros() expects numeric dimensions")
+        raise BoltRuntimeError("zeros() expects numeric dimensions")
     if len(dims) == 1:
         return Tensor((dims[0],), [0.0] * dims[0])
     if len(dims) == 2:
         return Tensor((dims[0], dims[1]), [0.0] * (dims[0] * dims[1]))
-    raise NexusRuntimeError("zeros() supports 1 or 2 dimensions")
+    raise BoltRuntimeError("zeros() supports 1 or 2 dimensions")
 
 
 def _nx_dot(a, b):
     if not isinstance(a, Tensor) or not isinstance(b, Tensor):
-        raise NexusRuntimeError("dot() expects two tensors")
+        raise BoltRuntimeError("dot() expects two tensors")
     try:
         return _tensor_dot(a, b)
     except ValueError as e:
-        raise NexusRuntimeError(str(e))
+        raise BoltRuntimeError(str(e))
 
 
 def _nx_matmul(a, b):
     if not isinstance(a, Tensor) or not isinstance(b, Tensor):
-        raise NexusRuntimeError("matmul() expects two tensors")
+        raise BoltRuntimeError("matmul() expects two tensors")
     try:
         return _tensor_matmul(a, b)
     except ValueError as e:
-        raise NexusRuntimeError(str(e))
+        raise BoltRuntimeError(str(e))
 
 
 def _nx_tshape(t):
     if not isinstance(t, Tensor):
-        raise NexusRuntimeError("tshape() expects a tensor")
+        raise BoltRuntimeError("tshape() expects a tensor")
     return list(t.shape)
 
 
 def _nx_tolist(t):
     if not isinstance(t, Tensor):
-        raise NexusRuntimeError("tolist() expects a tensor")
+        raise BoltRuntimeError("tolist() expects a tensor")
     return t.to_nested()
 
 
 def _nx_tsum(t):
     if not isinstance(t, Tensor):
-        raise NexusRuntimeError("tsum() expects a tensor")
+        raise BoltRuntimeError("tsum() expects a tensor")
     return sum(t.data)
 
 

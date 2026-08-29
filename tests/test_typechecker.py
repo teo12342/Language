@@ -1,9 +1,9 @@
 import pytest
 
-from nexus.errors import NexusTypeError
-from nexus.lexer import Lexer
-from nexus.parser import Parser
-from nexus.typechecker import check_types
+from bolt.errors import BoltTypeError
+from bolt.lexer import Lexer
+from bolt.parser import Parser
+from bolt.typechecker import check_types
 
 
 def check(source):
@@ -45,17 +45,17 @@ def test_string_plus_number_is_allowed():
 
 
 def test_let_type_mismatch_raises():
-    with pytest.raises(NexusTypeError):
+    with pytest.raises(BoltTypeError):
         check('let x: number = "not a number"')
 
 
 def test_reassign_typed_var_wrong_type_raises():
-    with pytest.raises(NexusTypeError):
+    with pytest.raises(BoltTypeError):
         check("let x: bool = true\nx = [1, 2]")
 
 
 def test_call_arg_type_mismatch_raises():
-    with pytest.raises(NexusTypeError):
+    with pytest.raises(BoltTypeError):
         check(
             """
             func add(a: number, b: number): number { return a + b }
@@ -65,7 +65,7 @@ def test_call_arg_type_mismatch_raises():
 
 
 def test_call_arity_mismatch_raises():
-    with pytest.raises(NexusTypeError):
+    with pytest.raises(BoltTypeError):
         check(
             """
             func add(a: number, b: number): number { return a + b }
@@ -75,7 +75,7 @@ def test_call_arity_mismatch_raises():
 
 
 def test_return_type_mismatch_raises():
-    with pytest.raises(NexusTypeError):
+    with pytest.raises(BoltTypeError):
         check(
             """
             func greet(name: string): string {
@@ -86,12 +86,12 @@ def test_return_type_mismatch_raises():
 
 
 def test_arithmetic_on_non_numbers_raises():
-    with pytest.raises(NexusTypeError):
+    with pytest.raises(BoltTypeError):
         check('let a: bool = true\nlet b: number = a - 1')
 
 
 def test_unknown_type_name_raises():
-    with pytest.raises(NexusTypeError):
+    with pytest.raises(BoltTypeError):
         check("let x: frobnicate = 1")
 
 
@@ -107,7 +107,7 @@ def test_unannotated_params_stay_dynamic():
 
 
 def test_nested_function_type_checked():
-    with pytest.raises(NexusTypeError):
+    with pytest.raises(BoltTypeError):
         check(
             """
             func outer() {

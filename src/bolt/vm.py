@@ -1,6 +1,6 @@
 from . import bytecode as B
 from .bytecode import FunctionProto
-from .errors import NexusRuntimeError
+from .errors import BoltRuntimeError
 from .interpreter import _check_numbers, _check_number, _is_truthy, _stringify
 from .tensor import Tensor
 
@@ -34,7 +34,7 @@ class VM:
 
     def call_closure(self, closure: Closure, args: list, line: int):
         if len(args) != closure.proto.arity:
-            raise NexusRuntimeError(
+            raise BoltRuntimeError(
                 f"Function '{closure.proto.name or '<anonymous>'}' expected "
                 f"{closure.proto.arity} argument(s) but got {len(args)}",
                 line,
@@ -75,7 +75,7 @@ class VM:
                 if type(callee) is Closure:
                     cproto = callee.proto
                     if len(call_args) != cproto.arity:
-                        raise NexusRuntimeError(
+                        raise BoltRuntimeError(
                             f"Function '{cproto.name or '<anonymous>'}' expected "
                             f"{cproto.arity} argument(s) but got {len(call_args)}",
                             line,
@@ -84,12 +84,12 @@ class VM:
                 elif callable(callee):
                     try:
                         result = callee(*call_args)
-                    except NexusRuntimeError:
+                    except BoltRuntimeError:
                         raise
                     except Exception as e:
-                        raise NexusRuntimeError(str(e), line)
+                        raise BoltRuntimeError(str(e), line)
                 else:
-                    raise NexusRuntimeError("Value is not callable", line)
+                    raise BoltRuntimeError("Value is not callable", line)
                 push(result)
             elif op == B.ADD:
                 b_ = pop()
@@ -101,7 +101,7 @@ class VM:
                     try:
                         push(a_ + b_)
                     except (ValueError, TypeError) as e:
-                        raise NexusRuntimeError(str(e), line)
+                        raise BoltRuntimeError(str(e), line)
                 elif ta is str or tb is str:
                     push(_stringify(a_) + _stringify(b_))
                 elif ta is list and tb is list:
@@ -118,7 +118,7 @@ class VM:
                     try:
                         push(a_ - b_)
                     except (ValueError, TypeError) as e:
-                        raise NexusRuntimeError(str(e), line)
+                        raise BoltRuntimeError(str(e), line)
                 else:
                     _check_numbers(a_, b_, line)
                     push(a_ - b_)
@@ -131,7 +131,7 @@ class VM:
                     try:
                         push(a_ * b_)
                     except (ValueError, TypeError) as e:
-                        raise NexusRuntimeError(str(e), line)
+                        raise BoltRuntimeError(str(e), line)
                 else:
                     _check_numbers(a_, b_, line)
                     push(a_ * b_)
@@ -172,13 +172,13 @@ class VM:
                 try:
                     push(self.globals[arg])
                 except KeyError:
-                    raise NexusRuntimeError(f"Undefined variable '{arg}'", line)
+                    raise BoltRuntimeError(f"Undefined variable '{arg}'", line)
             elif op == B.SET_GLOBAL:
                 g = self.globals
                 if arg in g:
                     g[arg] = stack[-1]
                 else:
-                    raise NexusRuntimeError(f"Undefined variable '{arg}'", line)
+                    raise BoltRuntimeError(f"Undefined variable '{arg}'", line)
             elif op == B.DEFINE_GLOBAL:
                 value = stack.pop()
                 if arg not in self._native:
@@ -215,17 +215,17 @@ class VM:
                     try:
                         stack.append(a_ / b_)
                     except (ValueError, TypeError, ZeroDivisionError) as e:
-                        raise NexusRuntimeError(str(e), line)
+                        raise BoltRuntimeError(str(e), line)
                     continue
                 _check_numbers(a_, b_, line)
                 if b_ == 0:
-                    raise NexusRuntimeError("Division by zero", line)
+                    raise BoltRuntimeError("Division by zero", line)
                 stack.append(a_ / b_)
             elif op == B.MOD:
                 b_ = stack.pop(); a_ = stack.pop()
                 _check_numbers(a_, b_, line)
                 if b_ == 0:
-                    raise NexusRuntimeError("Modulo by zero", line)
+                    raise BoltRuntimeError("Modulo by zero", line)
                 stack.append(a_ % b_)
             elif op == B.NEG:
                 v = stack.pop()
@@ -264,9 +264,9 @@ class VM:
                 try:
                     stack.append(obj[key])
                 except (KeyError, IndexError):
-                    raise NexusRuntimeError(f"Index/key {key!r} not found", line)
+                    raise BoltRuntimeError(f"Index/key {key!r} not found", line)
                 except TypeError as e:
-                    raise NexusRuntimeError(str(e), line)
+                    raise BoltRuntimeError(str(e), line)
             elif op == B.SET_INDEX:
                 value = stack.pop()
                 key = stack.pop()
@@ -274,28 +274,28 @@ class VM:
                 try:
                     obj[key] = value
                 except (TypeError, IndexError) as e:
-                    raise NexusRuntimeError(str(e), line)
+                    raise BoltRuntimeError(str(e), line)
                 stack.append(value)
             elif op == B.GET_ATTR:
                 obj = stack.pop()
                 if isinstance(obj, dict) and arg in obj:
                     stack.append(obj[arg])
                 else:
-                    raise NexusRuntimeError(f"No attribute '{arg}'", line)
+                    raise BoltRuntimeError(f"No attribute '{arg}'", line)
             elif op == B.SET_ATTR:
                 value = stack.pop()
                 obj = stack.pop()
                 if isinstance(obj, dict):
                     obj[arg] = value
                 else:
-                    raise NexusRuntimeError("Cannot set attribute on this value", line)
+                    raise BoltRuntimeError("Cannot set attribute on this value", line)
                 stack.append(value)
             elif op == B.GET_ITER:
                 iterable = stack.pop()
                 try:
                     stack.append(iter(iterable))
                 except TypeError:
-                    raise NexusRuntimeError("Value is not iterable", line)
+                    raise BoltRuntimeError("Value is not iterable", line)
             elif op == B.FOR_ITER:
                 try:
                     stack.append(next(stack[-1]))
@@ -312,4 +312,4 @@ class VM:
                         captured.append(upvalues[index])
                 stack.append(Closure(proto, captured))
             else:
-                raise NexusRuntimeError(f"Unknown opcode {op}", line)
+                raise BoltRuntimeError(f"Unknown opcode {op}", line)

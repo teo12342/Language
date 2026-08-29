@@ -5,16 +5,16 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
-from nexus.builtins import make_builtins
-from nexus.compiler import compile_program
-from nexus.errors import NexusError
-from nexus.interpreter import Interpreter
-from nexus.jsgen import generate_js
-from nexus.lexer import Lexer
-from nexus.native import NativeCompileError, compile_native
-from nexus.parser import Parser
-from nexus.typechecker import check_types
-from nexus.vm import VM
+from bolt.builtins import make_builtins
+from bolt.compiler import compile_program
+from bolt.errors import BoltError
+from bolt.interpreter import Interpreter
+from bolt.jsgen import generate_js
+from bolt.lexer import Lexer
+from bolt.native import NativeCompileError, compile_native
+from bolt.parser import Parser
+from bolt.typechecker import check_types
+from bolt.vm import VM
 
 
 def run_source(source: str, engine: str = "vm", typecheck: bool = True, native: bool = False) -> int:
@@ -40,7 +40,7 @@ def run_source(source: str, engine: str = "vm", typecheck: bool = True, native: 
         else:
             Interpreter(make_builtins(), native=wrappers).run(statements)
         return 0
-    except NexusError as e:
+    except BoltError as e:
         print(f"Error: {e.message}" + (f" (line {e.line})" if e.line else ""), file=sys.stderr)
         return 1
 
@@ -51,7 +51,7 @@ def transpile_to_js(source: str, out_path: Path) -> int:
         statements = Parser(tokens).parse()
         check_types(statements)
         js_source = generate_js(statements)
-    except NexusError as e:
+    except BoltError as e:
         print(f"Error: {e.message}" + (f" (line {e.line})" if e.line else ""), file=sys.stderr)
         return 1
     out_path.write_text(js_source)
@@ -60,8 +60,8 @@ def transpile_to_js(source: str, out_path: Path) -> int:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Run or transpile a Nexus script")
-    parser.add_argument("script", help="Path to a .nx script")
+    parser = argparse.ArgumentParser(description="Run or transpile a Bolt script")
+    parser.add_argument("script", help="Path to a .bo script")
     parser.add_argument(
         "--engine", choices=["vm", "tree"], default="vm",
         help="Execution engine: 'vm' (bytecode VM, default) or 'tree' (tree-walking interpreter)",

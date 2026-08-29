@@ -7,7 +7,7 @@ from .ast_nodes import (
     Literal, Logical, MapLiteral, ReturnStmt, Stmt, Unary, Variable, WhileStmt,
 )
 from .bytecode import Chunk, FunctionProto
-from .errors import NexusSyntaxError
+from .errors import BoltSyntaxError
 
 _BINARY_OPS = {
     "+": B.ADD, "-": B.SUB, "*": B.MUL, "/": B.DIV, "%": B.MOD,
@@ -252,13 +252,13 @@ class Compiler:
 
     def _stmt_BreakStmt(self, ctx, stmt: BreakStmt):
         if not ctx.loop_stack:
-            raise NexusSyntaxError("'break' outside of a loop", stmt.line)
+            raise BoltSyntaxError("'break' outside of a loop", stmt.line)
         idx = ctx.emit(B.JUMP, None, stmt.line)
         ctx.loop_stack[-1].breaks.append(idx)
 
     def _stmt_ContinueStmt(self, ctx, stmt: ContinueStmt):
         if not ctx.loop_stack:
-            raise NexusSyntaxError("'continue' outside of a loop", stmt.line)
+            raise BoltSyntaxError("'continue' outside of a loop", stmt.line)
         ctx.emit(B.JUMP, ctx.loop_stack[-1].continue_target, stmt.line)
 
     def _stmt_Block(self, ctx, stmt: Block):
@@ -322,7 +322,7 @@ class Compiler:
             self._expr(ctx, expr.value)
             ctx.emit(B.SET_ATTR, target.name, expr.line)
         else:
-            raise NexusSyntaxError("Invalid assignment target", expr.line)
+            raise BoltSyntaxError("Invalid assignment target", expr.line)
 
     def _expr_Unary(self, ctx, expr: Unary):
         self._expr(ctx, expr.right)

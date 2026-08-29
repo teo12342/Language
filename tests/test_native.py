@@ -2,11 +2,11 @@ import shutil
 
 import pytest
 
-from nexus.errors import NexusTypeError
-from nexus.lexer import Lexer
-from nexus.native import NativeCompileError, compile_native
-from nexus.parser import Parser
-from nexus.typechecker import check_types
+from bolt.errors import BoltTypeError
+from bolt.lexer import Lexer
+from bolt.native import NativeCompileError, compile_native
+from bolt.parser import Parser
+from bolt.typechecker import check_types
 
 pytestmark = pytest.mark.skipif(shutil.which("gcc") is None, reason="gcc not available")
 

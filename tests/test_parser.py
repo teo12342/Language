@@ -1,9 +1,9 @@
 import pytest
 
-from nexus.ast_nodes import Binary, ExprStmt, FuncStmt, IfStmt, LetStmt
-from nexus.errors import NexusSyntaxError
-from nexus.lexer import Lexer
-from nexus.parser import Parser
+from bolt.ast_nodes import Binary, ExprStmt, FuncStmt, IfStmt, LetStmt
+from bolt.errors import BoltSyntaxError
+from bolt.lexer import Lexer
+from bolt.parser import Parser
 
 
 def parse(source):
@@ -37,6 +37,6 @@ def test_expr_statement():
 
 
 def test_syntax_error_reports_line():
-    with pytest.raises(NexusSyntaxError) as exc_info:
+    with pytest.raises(BoltSyntaxError) as exc_info:
         parse("let x = 1\nlet y = )")
     assert exc_info.value.line == 2
