@@ -1,4 +1,5 @@
 import http.server
+import math
 
 from .errors import BoltRuntimeError
 from .interpreter import _stringify
@@ -148,6 +149,154 @@ def _nx_tsum(t):
     return sum(t.data)
 
 
+def _nx_transpose(t):
+    if not isinstance(t, Tensor) or len(t.shape) != 2:
+        raise BoltRuntimeError("transpose() expects a 2-D tensor")
+    rows, cols = t.shape
+    data = [0.0] * (rows * cols)
+    for r in range(rows):
+        for c in range(cols):
+            data[c * rows + r] = t.data[r * cols + c]
+    return Tensor((cols, rows), data)
+
+
+def _nx_identity(n):
+    try:
+        n = int(n)
+    except (TypeError, ValueError):
+        raise BoltRuntimeError("identity() expects a number")
+    data = [0.0] * (n * n)
+    for i in range(n):
+        data[i * n + i] = 1.0
+    return Tensor((n, n), data)
+
+
+def _make_tmap(call_fn):
+    """tmap(tensor, fn): apply a Bolt function elementwise over a tensor."""
+
+    def _tmap(t, fn):
+        if not isinstance(t, Tensor):
+            raise BoltRuntimeError("tmap() expects a tensor")
+        if call_fn is None:
+            raise BoltRuntimeError("tmap() is not available in this context")
+        return Tensor(t.shape, [call_fn(fn, [x]) for x in t.data])
+
+    return _tmap
+
+
+# ---- math ----
+
+def _nx_sqrt(x):
+    if not isinstance(x, (int, float)) or isinstance(x, bool):
+        raise BoltRuntimeError("sqrt() expects a number")
+    if x < 0:
+        raise BoltRuntimeError("sqrt() of a negative number")
+    return math.sqrt(x)
+
+
+def _nx_abs(x):
+    return abs(x)
+
+
+def _nx_min(*args):
+    values = args[0] if len(args) == 1 and isinstance(args[0], list) else args
+    if not values:
+        raise BoltRuntimeError("min() expects at least one value")
+    return min(values)
+
+
+def _nx_max(*args):
+    values = args[0] if len(args) == 1 and isinstance(args[0], list) else args
+    if not values:
+        raise BoltRuntimeError("max() expects at least one value")
+    return max(values)
+
+
+def _nx_floor(x):
+    return math.floor(x)
+
+
+def _nx_ceil(x):
+    return math.ceil(x)
+
+
+def _nx_round(x, digits=0):
+    digits = int(digits)
+    return round(x, digits) if digits else round(x)
+
+
+def _nx_pow(base, exponent):
+    return base ** exponent
+
+
+# ---- strings ----
+
+def _nx_trim(s):
+    return s.strip()
+
+
+def _nx_replace(s, old, new):
+    return s.replace(old, new)
+
+
+def _nx_repeat(s, n):
+    return s * int(n)
+
+
+def _nx_starts_with(s, prefix):
+    return s.startswith(prefix)
+
+
+def _nx_ends_with(s, suffix):
+    return s.endswith(suffix)
+
+
+# ---- lists / general ----
+
+def _nx_contains(container, item):
+    try:
+        return item in container
+    except TypeError:
+        raise BoltRuntimeError("contains() expects a list, map, or string")
+
+
+def _nx_index_of(container, item):
+    try:
+        return container.index(item)
+    except ValueError:
+        return -1
+    except AttributeError:
+        raise BoltRuntimeError("index_of() expects a list or string")
+
+
+def _nx_sort(lst):
+    if not isinstance(lst, list):
+        raise BoltRuntimeError("sort() expects a list")
+    lst.sort()
+    return lst
+
+
+def _nx_reverse(lst):
+    if not isinstance(lst, list):
+        raise BoltRuntimeError("reverse() expects a list")
+    lst.reverse()
+    return lst
+
+
+def _nx_slice(lst, start, end=None):
+    if end is None:
+        return lst[int(start):]
+    return lst[int(start):int(end)]
+
+
+def _nx_concat(a, b):
+    if isinstance(a, list) and isinstance(b, list):
+        return a + b
+    if isinstance(a, str) and isinstance(b, str):
+        return a + b
+    raise BoltRuntimeError("concat() expects two lists or two strings")
+
+
 def _make_serve(call_fn):
     """serve(port, handler, max_requests=1): a real HTTP server.
 
@@ -222,5 +371,27 @@ def make_builtins(call_fn=None) -> dict[str, object]:
         "tshape": _nx_tshape,
         "tolist": _nx_tolist,
         "tsum": _nx_tsum,
+        "transpose": _nx_transpose,
+        "identity": _nx_identity,
+        "tmap": _make_tmap(call_fn),
+        "sqrt": _nx_sqrt,
+        "abs": _nx_abs,
+        "min": _nx_min,
+        "max": _nx_max,
+        "floor": _nx_floor,
+        "ceil": _nx_ceil,
+        "round": _nx_round,
+        "pow": _nx_pow,
+        "trim": _nx_trim,
+        "replace": _nx_replace,
+        "repeat": _nx_repeat,
+        "starts_with": _nx_starts_with,
+        "ends_with": _nx_ends_with,
+        "contains": _nx_contains,
+        "index_of": _nx_index_of,
+        "sort": _nx_sort,
+        "reverse": _nx_reverse,
+        "slice": _nx_slice,
+        "concat": _nx_concat,
         "serve": _make_serve(call_fn),
     }
