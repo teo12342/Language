@@ -2,6 +2,28 @@
 
 All notable changes to Bolt, by version.
 
+## v0.13.0
+
+Closes the three gaps v0.12.0 explicitly called out: sprites, sound,
+and collision.
+
+- New `draw_image(win, path, x, y)`: draws a real PNG/GIF sprite image,
+  decoded natively by tkinter, no extra install. Images are cached per
+  window by path.
+- New `rects_overlap(x1, y1, w1, h1, x2, y2, w2, h2)` and
+  `circles_overlap(x1, y1, r1, x2, y2, r2)`: axis-aligned box and
+  circle collision detection.
+- New `beep(freq=440, duration_ms=200)` and `play_sound(path,
+  wait=false)`: real sound via the stdlib `winsound` module (Windows
+  only; raises a clear error elsewhere rather than doing nothing).
+- `examples/game_demo.bo` now uses all three together: a sprite target
+  to collect, `rects_overlap()` to detect the hit, `beep()` on
+  collision, and a running score - a real small game, not a tech demo
+  of unconnected features.
+- 103/103 existing tests still pass; all new capabilities smoke-tested
+  end-to-end (real window, real sprite file, real collision, real
+  beep) this session.
+
 ## v0.12.0
 
 First real step toward game development: an actual on-screen window

@@ -1,12 +1,17 @@
-# A real, playable Bolt game: move a square around a window with the
-# arrow keys. window()/rect()/key()/tick() are backed by a real tkinter
-# window - an actual on-screen game, not a simulation.
+# A real, playable Bolt game: move a sprite around a window, collect a
+# target, hear a beep and score a point on collision. window()/rect()/
+# draw_image()/key()/tick()/rects_overlap()/beep() are all real - an
+# actual on-screen game, not a simulation.
 
 let win = window(480, 320, "Bolt Game Demo")
 
 let x = 220
 let y = 140
 let speed = 4
+let score = 0
+
+let target_x = 350
+let target_y = 60
 
 while tick(win, 60) {
     if key(win, "left") { x = x - speed }
@@ -19,13 +24,21 @@ while tick(win, 60) {
     if y < 0 { y = 0 }
     if y > 280 { y = 280 }
 
+    if rects_overlap(x, y, 40, 40, target_x, target_y, 30, 30) {
+        score = score + 1
+        beep(660, 80)
+        target_x = 20 + (score * 47) % 400
+        target_y = 20 + (score * 83) % 240
+    }
+
     clear(win, "#171410")
-    rect(win, x, y, 40, 40, "#e2895f")
-    draw_text(win, 10, 10, "Arrow keys to move", "#a89d86")
+    draw_image(win, "examples/sprite.png", target_x, target_y)
+    rect(win, x, y, 40, 40, "#6fc1ba")
+    draw_text(win, 10, 10, "Arrow keys to move - score: " + str(score), "#a89d86")
 
     if key(win, "escape") {
         close_window(win)
     }
 }
 
-print("window closed")
+print("final score:", score)

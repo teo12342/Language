@@ -498,6 +498,8 @@ class _BoltWindow:
         self.root.bind("<KeyPress>", lambda e: self.keys_down.add(e.keysym.lower()))
         self.root.bind("<KeyRelease>", lambda e: self.keys_down.discard(e.keysym.lower()))
 
+        self._images: dict = {}  # path -> tk.PhotoImage, kept alive here
+
     def _on_close(self):
         self.closed = True
         try:
@@ -549,6 +551,66 @@ def _draw_text(win, x, y, msg, color="white"):
     if not _require_open_window(win, "draw_text"):
         return None
     win.canvas.create_text(x, y, text=_stringify(msg), fill=color, anchor="nw")
+    return None
+
+
+def _draw_image(win, path, x, y):
+    """Draws a real image (PNG or GIF - whatever tkinter's PhotoImage
+    natively decodes, no extra install) at (x, y). Images are cached per
+    window by path, both for speed and because tkinter drops a
+    PhotoImage's pixels the moment nothing keeps a Python reference to
+    it - the classic "blank canvas" tkinter sprite bug.
+    """
+    if not _require_open_window(win, "draw_image"):
+        return None
+    import tkinter as tk
+
+    img = win._images.get(path)
+    if img is None:
+        try:
+            img = tk.PhotoImage(file=path)
+        except Exception as e:
+            raise BoltRuntimeError(f"draw_image(): couldn't load '{path}': {e}")
+        win._images[path] = img
+    win.canvas.create_image(x, y, image=img, anchor="nw")
+    return None
+
+
+def _rects_overlap(x1, y1, w1, h1, x2, y2, w2, h2):
+    """Axis-aligned bounding-box collision - the standard first check
+    every 2D game needs before anything fancier."""
+    return x1 < x2 + w2 and x1 + w1 > x2 and y1 < y2 + h2 and y1 + h1 > y2
+
+
+def _circles_overlap(x1, y1, r1, x2, y2, r2):
+    dx = x1 - x2
+    dy = y1 - y2
+    return (dx * dx + dy * dy) < (r1 + r2) * (r1 + r2)
+
+
+def _beep(freq=440, duration_ms=200):
+    """A real system beep at a given frequency (Hz) and duration (ms) -
+    Windows only (winsound is a Windows-only stdlib module); raises a
+    clear error elsewhere instead of silently doing nothing."""
+    try:
+        import winsound
+    except ImportError:
+        raise BoltRuntimeError("beep() needs winsound, which is Windows-only")
+    winsound.Beep(int(freq), int(duration_ms))
+    return None
+
+
+def _play_sound(path, wait=False):
+    """Plays a real .wav file. Windows only (winsound); raises a clear
+    error elsewhere. `wait=true` blocks until playback finishes,
+    otherwise it plays in the background so the game loop keeps running."""
+    try:
+        import winsound
+    except ImportError:
+        raise BoltRuntimeError("play_sound() needs winsound, which is Windows-only")
+    flags = winsound.SND_FILENAME
+    flags |= 0 if wait else winsound.SND_ASYNC
+    winsound.PlaySound(path, flags)
     return None
 
 
@@ -697,7 +759,12 @@ def make_builtins(call_fn=None) -> dict[str, object]:
         "rect": _rect,
         "circle": _circle,
         "draw_text": _draw_text,
+        "draw_image": _draw_image,
         "key": _key,
         "tick": _tick,
         "close_window": _close_window,
+        "rects_overlap": _rects_overlap,
+        "circles_overlap": _circles_overlap,
+        "beep": _beep,
+        "play_sound": _play_sound,
     }
