@@ -14,9 +14,11 @@ backend for hot numeric code, and a JavaScript transpiler for the web.
   directly. Kept as a reference implementation; both engines are tested
   against the same test cases and always agree.
 - **Native backend** (`--native`) — AOT-compiles eligible number-only
-  top-level functions to C, builds them with `gcc`, and transparently
-  swaps them in for their interpreted counterparts — recursive self-calls
-  included. Everything else in the script keeps running on the VM/interpreter.
+  top-level functions to C, builds them with `gcc` (or MSVC's `cl.exe` on
+  Windows machines that only have Visual Studio Build Tools installed —
+  no MinGW/gcc required there), and transparently swaps them in for their
+  interpreted counterparts — recursive self-calls included. Everything
+  else in the script keeps running on the VM/interpreter.
 - **JavaScript transpiler** (`--target js`) — compiles the AST directly to a
   standalone `.js` file that runs in Node or a browser with no dependencies.
 - **Built-in web server** (`serve`) — a Bolt script can now serve real,
@@ -33,8 +35,10 @@ python cli.py examples/webserver.bo                  # start a real HTTP server 
 ```
 
 No dependencies are required to run scripts (the native backend needs
-`gcc` on PATH; the JS output needs `node` or a browser to run it, not to
-generate it). Running the test suite needs `pytest` (`pip install pytest`).
+`gcc` on PATH, or on Windows falls back to MSVC's `cl.exe` if Visual
+Studio Build Tools are installed; the JS output needs `node` or a
+browser to run it, not to generate it). Running the test suite needs
+`pytest` (`pip install pytest`).
 
 ```bash
 python -m pytest tests/
@@ -344,9 +348,10 @@ Any top-level `func` whose parameters *and* return type are all annotated
 `for x in range(...)`, `return`, calls to `sqrt`/`abs`/`floor`/`ceil`/
 `pow`/`min`/`max` (mapped straight to their `<math.h>` equivalents), and
 calls to other such functions (including itself, for recursion) — is
-eligible. Eligible functions get compiled to C, built with `gcc -O2`, and
-loaded back via `ctypes`; the compiled version replaces the interpreted
-one under the same name, so every call site (recursive calls included)
+eligible. Eligible functions get compiled to C, built with `gcc -O2` (or
+MSVC's `cl.exe /O2` on Windows without gcc installed), and loaded back
+via `ctypes`; the compiled version replaces the interpreted one under
+the same name, so every call site (recursive calls included)
 transparently runs at native speed. Anything not eligible (strings,
 lists, maps, tensors, closures, untyped params, break/continue, a `for`
 over anything but `range(...)`, `min`/`max` with anything but exactly two

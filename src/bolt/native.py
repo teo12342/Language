@@ -16,6 +16,9 @@ with zero changes to the VM/interpreter dispatch.
 """
 
 import ctypes
+import os
+import platform
+import shutil
 import subprocess
 import tempfile
 from pathlib import Path
@@ -49,7 +52,21 @@ _MATH_BUILTINS = {
 }
 
 
+_SYMBOL_PREFIX = "bolt_fn_"  # namespaces every emitted C symbol so a Bolt
+# function named e.g. hypot/pow/log can't collide with the identically-
+# named function libc's own math.h already declares - a real bug this
+# surfaced under MSVC (C2375: redefinition; different linkage), which
+# gcc had been silently letting slide.
+
+
 class _CCompiler:
+    def __init__(self, all_top_level_names: set[str] | None = None):
+        # Every top-level Bolt function name, not just the eligible ones -
+        # used only to decide whether a Call target should be prefixed as
+        # a peer function; an unresolvable target still fails to compile
+        # naturally (undefined C symbol), same as before this existed.
+        self._user_fn_names = all_top_level_names or set()
+
     def check_eligible(self, func: FuncStmt) -> str | None:
         try:
             self._emit_func(func)
@@ -58,11 +75,23 @@ class _CCompiler:
             return str(e)
 
     def emit_module(self, funcs: list[FuncStmt]) -> str:
+        # __declspec(dllexport) is needed for MSVC to expose these symbols
+        # from the DLL at all (unlike gcc/Clang, which export everything
+        # from a shared object by default) - defining it as empty on other
+        # compilers keeps one code path for both.
+        export_macro = (
+            "#if defined(_MSC_VER)\n"
+            "#define BOLT_EXPORT __declspec(dllexport)\n"
+            "#else\n"
+            "#define BOLT_EXPORT\n"
+            "#endif\n"
+        )
         protos = "\n".join(
-            f"double {f.name}({', '.join('double' for _ in f.params)});" for f in funcs
+            f"BOLT_EXPORT double {_SYMBOL_PREFIX}{f.name}({', '.join('double' for _ in f.params)});"
+            for f in funcs
         )
         bodies = "\n\n".join(self._emit_func(f) for f in funcs)
-        return f"#include <math.h>\n\n{protos}\n\n{bodies}\n"
+        return f"#include <math.h>\n\n{export_macro}\n{protos}\n\n{bodies}\n"
 
     # ---- function/statement/expression emission ----
 
@@ -74,7 +103,7 @@ class _CCompiler:
         params_c = ", ".join(f"double {p}" for p in func.params)
         known = set(func.params)
         body_c = self._emit_block(func.body, known)
-        return f"double {func.name}({params_c}) {{\n{body_c}\n}}"
+        return f"BOLT_EXPORT double {_SYMBOL_PREFIX}{func.name}({params_c}) {{\n{body_c}\n}}"
 
     def _emit_block(self, stmts, known: set) -> str:
         return "\n".join(self._emit_stmt(s, known) for s in stmts)
@@ -176,7 +205,8 @@ class _CCompiler:
                 args = ", ".join(self._emit_expr(a, known) for a in expr.args)
                 return f"{c_name}({args})"
             args = ", ".join(self._emit_expr(a, known) for a in expr.args)
-            return f"{name}({args})"
+            c_name = f"{_SYMBOL_PREFIX}{name}" if name in self._user_fn_names else name
+            return f"{c_name}({args})"
         if kind == "Assign":
             if not isinstance(expr.target, Variable):
                 raise _Unsupported("only assignment to simple variables is supported")
@@ -199,6 +229,102 @@ def _wrap(cfunc):
     return wrapper
 
 
+_msvc_env_cache: dict | None = None
+
+
+def _find_msvc_env() -> dict | None:
+    """Locates a Visual Studio (or Build Tools) install via vswhere and
+    harvests the environment vcvarsall.bat sets up (INCLUDE/LIB/PATH with
+    cl.exe on it) by running it in a child cmd.exe and capturing `set`.
+    Cached after the first successful call since it's a subprocess launch.
+    """
+    global _msvc_env_cache
+    if _msvc_env_cache is not None:
+        return _msvc_env_cache or None
+    if platform.system() != "Windows":
+        _msvc_env_cache = {}
+        return None
+
+    vswhere = Path(os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)")) / \
+        "Microsoft Visual Studio" / "Installer" / "vswhere.exe"
+    if not vswhere.exists():
+        _msvc_env_cache = {}
+        return None
+
+    try:
+        install_path = subprocess.run(
+            [str(vswhere), "-latest", "-products", "*",
+             "-requires", "Microsoft.VisualStudio.Component.VC.Tools.x86.x64",
+             "-property", "installationPath"],
+            capture_output=True, text=True, check=True,
+        ).stdout.strip()
+    except (subprocess.CalledProcessError, OSError):
+        _msvc_env_cache = {}
+        return None
+    if not install_path:
+        _msvc_env_cache = {}
+        return None
+
+    vcvars = Path(install_path) / "VC" / "Auxiliary" / "Build" / "vcvars64.bat"
+    if not vcvars.exists():
+        _msvc_env_cache = {}
+        return None
+
+    try:
+        out = subprocess.run(
+            f'cmd /c "\"{vcvars}\" >nul 2>&1 && set"',
+            capture_output=True, text=True, shell=True,
+        ).stdout
+    except OSError:
+        _msvc_env_cache = {}
+        return None
+
+    env = {}
+    for line in out.splitlines():
+        if "=" in line:
+            k, _, v = line.partition("=")
+            env[k] = v
+    if "PATH" not in env or not shutil.which("cl.exe", path=env.get("PATH")):
+        _msvc_env_cache = {}
+        return None
+
+    _msvc_env_cache = env
+    return env
+
+
+def _compile_c(c_path: Path, dll_path: Path) -> None:
+    """Compiles the emitted C into a shared library, preferring gcc (works
+    unmodified on Linux/macOS/MinGW) and falling back to MSVC's cl.exe on
+    Windows machines that only have Visual Studio Build Tools installed -
+    no mingw/gcc required there.
+    """
+    if shutil.which("gcc"):
+        result = subprocess.run(
+            ["gcc", "-O2", "-shared", "-fPIC", "-o", str(dll_path), str(c_path), "-lm"],
+            capture_output=True, text=True,
+        )
+        if result.returncode != 0:
+            raise NativeCompileError(f"gcc failed to compile native functions:\n{result.stderr}")
+        return
+
+    msvc_env = _find_msvc_env()
+    if msvc_env is not None:
+        cl_path = shutil.which("cl.exe", path=msvc_env.get("PATH"))
+        result = subprocess.run(
+            [cl_path, "/nologo", "/O2", "/LD", f"/Fe:{dll_path}", str(c_path)],
+            capture_output=True, text=True, cwd=str(c_path.parent), env=msvc_env,
+        )
+        if result.returncode != 0:
+            raise NativeCompileError(f"cl.exe failed to compile native functions:\n{result.stdout}\n{result.stderr}")
+        return
+
+    raise NativeCompileError(
+        "No C compiler found for --native: install gcc (e.g. via MSYS2/MinGW) "
+        "or Visual Studio Build Tools with the \"Desktop development with C++\" "
+        "workload."
+    )
+
+
 def compile_native(statements, out_dir: str | None = None):
     """Returns (wrappers, compiled_names, skipped) for the top-level `func`
     declarations found in `statements`. `wrappers` maps name -> a Python
@@ -206,7 +332,7 @@ def compile_native(statements, out_dir: str | None = None):
     for every top-level function that wasn't eligible.
     """
     funcs = [s for s in statements if isinstance(s, FuncStmt)]
-    compiler = _CCompiler()
+    compiler = _CCompiler({f.name for f in funcs})
 
     eligible, skipped = [], {}
     for f in funcs:
@@ -221,20 +347,16 @@ def compile_native(statements, out_dir: str | None = None):
 
     work_dir = Path(out_dir) if out_dir else Path(tempfile.mkdtemp(prefix="bolt_native_"))
     c_path = work_dir / "bolt_native.c"
-    so_path = work_dir / "bolt_native.so"
+    dll_ext = ".dll" if platform.system() == "Windows" else ".so"
+    so_path = work_dir / f"bolt_native{dll_ext}"
     c_path.write_text(compiler.emit_module(eligible))
 
-    result = subprocess.run(
-        ["gcc", "-O2", "-shared", "-fPIC", "-o", str(so_path), str(c_path), "-lm"],
-        capture_output=True, text=True,
-    )
-    if result.returncode != 0:
-        raise NativeCompileError(f"gcc failed to compile native functions:\n{result.stderr}")
+    _compile_c(c_path, so_path)
 
     lib = ctypes.CDLL(str(so_path))
     wrappers = {}
     for f in eligible:
-        cfunc = getattr(lib, f.name)
+        cfunc = getattr(lib, f"{_SYMBOL_PREFIX}{f.name}")
         cfunc.restype = ctypes.c_double
         cfunc.argtypes = [ctypes.c_double] * len(f.params)
         wrappers[f.name] = _wrap(cfunc)

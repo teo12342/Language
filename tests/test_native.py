@@ -4,11 +4,16 @@ import pytest
 
 from bolt.errors import BoltTypeError
 from bolt.lexer import Lexer
-from bolt.native import NativeCompileError, compile_native
+from bolt.native import NativeCompileError, _find_msvc_env, compile_native
 from bolt.parser import Parser
 from bolt.typechecker import check_types
 
-pytestmark = pytest.mark.skipif(shutil.which("gcc") is None, reason="gcc not available")
+
+def _has_c_compiler() -> bool:
+    return shutil.which("gcc") is not None or _find_msvc_env() is not None
+
+
+pytestmark = pytest.mark.skipif(not _has_c_compiler(), reason="no C compiler (gcc or MSVC) available")
 
 
 def parse(source):
