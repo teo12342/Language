@@ -2,6 +2,26 @@
 
 All notable changes to Bolt, by version.
 
+## v0.16.0
+
+More game-dev primitives: mouse input, a line-drawing helper, and
+sound control - closing the "keyboard only" and "play but can't stop"
+gaps from the last two rounds.
+
+- New `mouse_x(win)` / `mouse_y(win)` / `mouse_down(win,
+  button="left")`: real mouse position and button state (left or
+  right), tracked via tkinter's Motion/Button events.
+- New `line(win, x1, y1, x2, y2, color, width=1)`: a real missing
+  drawing primitive (rect/circle/text/image existed, lines didn't).
+- New `stop_sound()`: stops whatever `play_sound()` is currently
+  playing asynchronously - completes the play/stop pairing.
+- `examples/game_demo.bo` now supports moving the sprite by holding
+  the mouse button (in addition to arrow keys), and draws a ground
+  line.
+- 114/114 tests pass; all new builtins smoke-tested end-to-end this
+  session (real window, real mouse tracking, real line drawn, real
+  beep + stop_sound sequence).
+
 ## v0.15.0
 
 Investigated why the default VM engine runs `fib(30)` in ~17 seconds

@@ -202,11 +202,13 @@ print(map.a)          # dot access also works on maps
 | `window(width, height, title="Bolt")` | Open a real on-screen window; see below |
 | `clear(win, color="black")` / `rect(win, x, y, w, h, color)` / `circle(win, x, y, r, color)` / `draw_text(win, x, y, msg, color)` | Draw to a window |
 | `draw_image(win, path, x, y)` | Draw a real PNG/GIF sprite image |
+| `line(win, x1, y1, x2, y2, color, width=1)` | Draw a line |
 | `key(win, name)` | Whether a key is currently held (e.g. `"left"`, `"space"`, `"escape"`) |
+| `mouse_x(win)` / `mouse_y(win)` / `mouse_down(win, button="left")` | Real mouse position and button state (`"left"` or `"right"`) |
 | `tick(win, fps=60)` | Pump the window and pace to `fps`; `false` once the window is closed - the game-loop condition |
 | `close_window(win)` | Close a window |
 | `rects_overlap(x1, y1, w1, h1, x2, y2, w2, h2)` / `circles_overlap(x1, y1, r1, x2, y2, r2)` | Axis-aligned box / circle collision detection |
-| `beep(freq=440, duration_ms=200)` / `play_sound(path, wait=false)` | Real sound: a system beep, or a `.wav` file (Windows only) |
+| `beep(freq=440, duration_ms=200)` / `play_sound(path, wait=false)` / `stop_sound()` | Real sound: a system beep, a `.wav` file, or stop playback (Windows only) |
 
 ### Built-in web server (`serve`)
 
@@ -330,16 +332,19 @@ target frame rate, and returns `false` once the window is closed, so
 `examples/game_demo.bo` for a small playable demo (arrow keys to move a
 square, Escape to quit).
 
-Now with sprites, sound, and collision too: `draw_image(win, path, x, y)`
-draws a real PNG/GIF image (tkinter decodes it natively, no extra
-install); `rects_overlap(...)` / `circles_overlap(...)` are the axis-
-aligned box and circle collision checks every 2D game needs; `beep(...)`
-and `play_sound(path)` play a real system beep or `.wav` file (Windows
-only, via the stdlib `winsound` module). `examples/game_demo.bo` uses
-all of it together: move a sprite with the arrow keys, collide with a
-target to score a point and hear a beep. Still deliberately minimal —
-no animation frames, no physics, no scene graph — a real step toward
-game dev, not a game engine.
+Now with sprites, sound, collision, and mouse input too:
+`draw_image(win, path, x, y)` draws a real PNG/GIF image (tkinter decodes
+it natively, no extra install); `line(win, x1, y1, x2, y2, color)` draws
+a line; `rects_overlap(...)` / `circles_overlap(...)` are the
+axis-aligned box and circle collision checks every 2D game needs;
+`mouse_x(win)` / `mouse_y(win)` / `mouse_down(win, button)` track the
+real mouse; `beep(...)`, `play_sound(path)`, and `stop_sound()` play (and
+stop) a real system beep or `.wav` file (Windows only, via the stdlib
+`winsound` module). `examples/game_demo.bo` uses all of it together: move
+a sprite with the arrow keys or by holding the mouse button, collide
+with a target to score a point and hear a beep. Still deliberately
+minimal — no animation frames, no physics, no scene graph — a real step
+toward game dev, not a game engine.
 
 ### Native compilation (`--native`)
 

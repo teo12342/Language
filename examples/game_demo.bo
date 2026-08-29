@@ -1,7 +1,8 @@
-# A real, playable Bolt game: move a sprite around a window, collect a
-# target, hear a beep and score a point on collision. window()/rect()/
-# draw_image()/key()/tick()/rects_overlap()/beep() are all real - an
-# actual on-screen game, not a simulation.
+# A real, playable Bolt game: move a sprite with the arrows or by
+# holding the mouse button, collect a target, hear a beep and score a
+# point on collision. window()/rect()/line()/draw_image()/key()/
+# mouse_x()/mouse_y()/mouse_down()/tick()/rects_overlap()/beep() are
+# all real - an actual on-screen game, not a simulation.
 
 let win = window(480, 320, "Bolt Game Demo")
 
@@ -19,6 +20,11 @@ while tick(win, 60) {
     if key(win, "up") { y = y - speed }
     if key(win, "down") { y = y + speed }
 
+    if mouse_down(win, "left") {
+        x = mouse_x(win) - 20
+        y = mouse_y(win) - 20
+    }
+
     if x < 0 { x = 0 }
     if x > 440 { x = 440 }
     if y < 0 { y = 0 }
@@ -32,9 +38,10 @@ while tick(win, 60) {
     }
 
     clear(win, "#171410")
+    line(win, 0, 300, 480, 300, "#3a3327", 2)
     draw_image(win, "examples/sprite.png", target_x, target_y)
     rect(win, x, y, 40, 40, "#6fc1ba")
-    draw_text(win, 10, 10, "Arrow keys to move - score: " + str(score), "#a89d86")
+    draw_text(win, 10, 10, "Arrows or hold mouse to move - score: " + str(score), "#a89d86")
 
     if key(win, "escape") {
         close_window(win)

@@ -498,7 +498,20 @@ class _BoltWindow:
         self.root.bind("<KeyPress>", lambda e: self.keys_down.add(e.keysym.lower()))
         self.root.bind("<KeyRelease>", lambda e: self.keys_down.discard(e.keysym.lower()))
 
+        self.mouse_x = 0
+        self.mouse_y = 0
+        self.mouse_buttons_down: set[str] = set()
+        self.root.bind("<Motion>", self._on_mouse_move)
+        self.root.bind("<Button-1>", lambda e: self.mouse_buttons_down.add("left"))
+        self.root.bind("<ButtonRelease-1>", lambda e: self.mouse_buttons_down.discard("left"))
+        self.root.bind("<Button-3>", lambda e: self.mouse_buttons_down.add("right"))
+        self.root.bind("<ButtonRelease-3>", lambda e: self.mouse_buttons_down.discard("right"))
+
         self._images: dict = {}  # path -> tk.PhotoImage, kept alive here
+
+    def _on_mouse_move(self, event):
+        self.mouse_x = event.x
+        self.mouse_y = event.y
 
     def _on_close(self):
         self.closed = True
@@ -544,6 +557,13 @@ def _circle(win, x, y, r, color="white"):
     if not _require_open_window(win, "circle"):
         return None
     win.canvas.create_oval(x - r, y - r, x + r, y + r, fill=color, outline="")
+    return None
+
+
+def _line(win, x1, y1, x2, y2, color="white", width=1):
+    if not _require_open_window(win, "line"):
+        return None
+    win.canvas.create_line(x1, y1, x2, y2, fill=color, width=width)
     return None
 
 
@@ -614,10 +634,39 @@ def _play_sound(path, wait=False):
     return None
 
 
+def _stop_sound():
+    """Stops whatever play_sound() is currently playing asynchronously.
+    Windows only (winsound); raises a clear error elsewhere."""
+    try:
+        import winsound
+    except ImportError:
+        raise BoltRuntimeError("stop_sound() needs winsound, which is Windows-only")
+    winsound.PlaySound(None, winsound.SND_PURGE)
+    return None
+
+
 def _key(win, name):
     if not isinstance(win, _BoltWindow):
         raise BoltRuntimeError("key() expects a window handle from window()")
     return str(name).lower() in win.keys_down
+
+
+def _mouse_x(win):
+    if not isinstance(win, _BoltWindow):
+        raise BoltRuntimeError("mouse_x() expects a window handle from window()")
+    return win.mouse_x
+
+
+def _mouse_y(win):
+    if not isinstance(win, _BoltWindow):
+        raise BoltRuntimeError("mouse_y() expects a window handle from window()")
+    return win.mouse_y
+
+
+def _mouse_down(win, button="left"):
+    if not isinstance(win, _BoltWindow):
+        raise BoltRuntimeError("mouse_down() expects a window handle from window()")
+    return str(button).lower() in win.mouse_buttons_down
 
 
 def _tick(win, fps=60):
@@ -758,13 +807,18 @@ def make_builtins(call_fn=None) -> dict[str, object]:
         "clear": _clear,
         "rect": _rect,
         "circle": _circle,
+        "line": _line,
         "draw_text": _draw_text,
         "draw_image": _draw_image,
         "key": _key,
+        "mouse_x": _mouse_x,
+        "mouse_y": _mouse_y,
+        "mouse_down": _mouse_down,
         "tick": _tick,
         "close_window": _close_window,
         "rects_overlap": _rects_overlap,
         "circles_overlap": _circles_overlap,
         "beep": _beep,
         "play_sound": _play_sound,
+        "stop_sound": _stop_sound,
     }
