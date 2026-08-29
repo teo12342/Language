@@ -5,6 +5,10 @@ on:
   push:
     tags:
       - "bolt-studio-v*"
+  pull_request:
+    paths:
+      - "editor/**"
+      - ".github/workflows/build-bolt-studio.yml"
 
 permissions:
   contents: write
