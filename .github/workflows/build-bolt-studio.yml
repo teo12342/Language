@@ -66,25 +66,7 @@ jobs:
           OS_NAME: windows
           VSCODE_ARCH: x64
           NODE_OPTIONS: "--max-old-space-size=8192"
-        run: |
-          set +e
-          for attempt in 1 2 3; do
-            echo "=== build.sh attempt ${attempt} ==="
-            # VS Code's Windows gulp pipeline (vscode-min-prepack) occasionally
-            # loses a race and its `npm -v` sanity check fails transiently
-            # (seen as "The syntax of the command is incorrect" or "The system
-            # cannot execute the specified program" - different OS-level
-            # symptoms, same failure point, on unrelated CI runs). It is not
-            # something in this repo's own source. VS Code's build caches
-            # compiled output on disk, so re-invoking build.sh after a failure
-            # resumes near where it left off instead of redoing the full
-            # ~40 minute build - cheap to retry in place.
-            ./build.sh && { echo "build.sh succeeded on attempt ${attempt}"; exit 0; }
-            status=$?
-            echo "build.sh failed on attempt ${attempt} (exit ${status})"
-          done
-          echo "build.sh failed after 3 attempts"
-          exit 1
+        run: ./build.sh
 
       - name: Locate and zip the build output
         run: |
