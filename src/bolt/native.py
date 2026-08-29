@@ -1,4 +1,4 @@
-"""AOT-compiles a scoped subset of Nexus to native code via C + gcc.
+"""AOT-compiles a scoped subset of Bolt to native code via C + gcc.
 
 Eligible: top-level `func` declarations whose parameters and return type
 are all annotated `number`, whose bodies only use arithmetic, comparisons,
@@ -21,10 +21,10 @@ import tempfile
 from pathlib import Path
 
 from .ast_nodes import Assign, Call, FuncStmt, Variable
-from .errors import NexusError
+from .errors import BoltError
 
 
-class NativeCompileError(NexusError):
+class NativeCompileError(BoltError):
     pass
 
 
@@ -190,9 +190,9 @@ def compile_native(statements, out_dir: str | None = None):
             "return type annotated 'number', with no strings/lists/maps/closures)"
         )
 
-    work_dir = Path(out_dir) if out_dir else Path(tempfile.mkdtemp(prefix="nexus_native_"))
-    c_path = work_dir / "nexus_native.c"
-    so_path = work_dir / "nexus_native.so"
+    work_dir = Path(out_dir) if out_dir else Path(tempfile.mkdtemp(prefix="bolt_native_"))
+    c_path = work_dir / "bolt_native.c"
+    so_path = work_dir / "bolt_native.so"
     c_path.write_text(compiler.emit_module(eligible))
 
     result = subprocess.run(

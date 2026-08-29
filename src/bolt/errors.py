@@ -1,5 +1,5 @@
-class NexusError(Exception):
-    """Base class for all Nexus language errors."""
+class BoltError(Exception):
+    """Base class for all Bolt language errors."""
 
     def __init__(self, message: str, line: int | None = None):
         self.message = message
@@ -8,13 +8,13 @@ class NexusError(Exception):
         super().__init__(f"{message}{location}")
 
 
-class NexusSyntaxError(NexusError):
+class BoltSyntaxError(BoltError):
     pass
 
 
-class NexusRuntimeError(NexusError):
+class BoltRuntimeError(BoltError):
     pass
 
 
-class NexusTypeError(NexusError):
+class BoltTypeError(BoltError):
     pass

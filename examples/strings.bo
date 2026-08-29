@@ -1,7 +1,7 @@
 let name = "world"
 print("Hello, " + name + "!")
 
-let s = "Nexus Language"
+let s = "Bolt Language"
 print(upper(s))
 print(lower(s))
 print(len(s))

@@ -1,7 +1,7 @@
-"""A gradual, best-effort static type checker for Nexus.
+"""A gradual, best-effort static type checker for Bolt.
 
 Only annotated code is checked. Anything without a type annotation is
-treated as `any` and is never flagged - existing untyped Nexus programs
+treated as `any` and is never flagged - existing untyped Bolt programs
 type-check with zero errors. Checks mirror the actual runtime semantics
 in interpreter.py/vm.py (e.g. `+` allows string/number mixing because the
 runtime auto-stringifies), so a typed program that type-checks will not
@@ -15,7 +15,7 @@ from .ast_nodes import (
     ForStmt, FuncExpr, FuncStmt, GetAttr, IfStmt, Index, LetStmt, ListLiteral,
     Literal, Logical, MapLiteral, ReturnStmt, Stmt, Unary, Variable, WhileStmt,
 )
-from .errors import NexusTypeError
+from .errors import BoltTypeError
 
 ANY = "any"
 KNOWN_TYPES = {"number", "string", "bool", "nil", "list", "map", "func", "tensor", ANY}
@@ -87,9 +87,9 @@ class TypeChecker:
         declared = stmt.type_annotation
         if declared is not None:
             if declared not in KNOWN_TYPES:
-                raise NexusTypeError(f"Unknown type '{declared}'", stmt.line)
+                raise BoltTypeError(f"Unknown type '{declared}'", stmt.line)
             if not _compatible(declared, value_type):
-                raise NexusTypeError(
+                raise BoltTypeError(
                     f"Cannot assign {value_type} to '{stmt.name}' declared as {declared}",
                     stmt.line,
                 )
@@ -110,7 +110,7 @@ class TypeChecker:
         if self.return_type_stack:
             expected = self.return_type_stack[-1]
             if expected is not None and not _compatible(expected, value_type):
-                raise NexusTypeError(
+                raise BoltTypeError(
                     f"Function declared to return {expected} but returned {value_type}",
                     stmt.line,
                 )
@@ -155,9 +155,9 @@ class TypeChecker:
         types = [t if t is not None else ANY for t in (param_types or [None] * len(params))]
         for t in types:
             if t not in KNOWN_TYPES:
-                raise NexusTypeError(f"Unknown type '{t}'", line)
+                raise BoltTypeError(f"Unknown type '{t}'", line)
         if return_type is not None and return_type not in KNOWN_TYPES:
-            raise NexusTypeError(f"Unknown type '{return_type}'", line)
+            raise BoltTypeError(f"Unknown type '{return_type}'", line)
 
         if name is not None:
             self.functions[name] = FuncSig(types, return_type or ANY, len(params))
@@ -199,7 +199,7 @@ class TypeChecker:
         if isinstance(target, Variable):
             declared = scope.lookup(target.name)
             if declared != ANY and not _compatible(declared, value_type):
-                raise NexusTypeError(
+                raise BoltTypeError(
                     f"Cannot assign {value_type} to '{target.name}' declared as {declared}",
                     expr.line,
                 )
@@ -211,7 +211,7 @@ class TypeChecker:
         right = self._expr(expr.right, scope)
         if expr.op == "-":
             if right not in (ANY, "number"):
-                raise NexusTypeError(f"Cannot negate a {right}", expr.line)
+                raise BoltTypeError(f"Cannot negate a {right}", expr.line)
             return "number"
         return "bool"
 
@@ -240,16 +240,16 @@ class TypeChecker:
                 return "list"
             if left in (ANY, "number") and right in (ANY, "number"):
                 return "number"
-            raise NexusTypeError(f"Cannot add {left} and {right}", expr.line)
+            raise BoltTypeError(f"Cannot add {left} and {right}", expr.line)
 
         if op in _NUMBER_OPS:
             if left not in (ANY, "number") or right not in (ANY, "number"):
-                raise NexusTypeError(f"Operator '{op}' requires numbers, got {left} and {right}", expr.line)
+                raise BoltTypeError(f"Operator '{op}' requires numbers, got {left} and {right}", expr.line)
             return "number"
 
         if op in _COMPARE_OPS:
             if left not in (ANY, "number") or right not in (ANY, "number"):
-                raise NexusTypeError(f"Operator '{op}' requires numbers, got {left} and {right}", expr.line)
+                raise BoltTypeError(f"Operator '{op}' requires numbers, got {left} and {right}", expr.line)
             return "bool"
 
         return "bool"  # == / !=
@@ -259,14 +259,14 @@ class TypeChecker:
         if isinstance(expr.callee, Variable) and expr.callee.name in self.functions:
             sig = self.functions[expr.callee.name]
             if len(expr.args) != sig.arity:
-                raise NexusTypeError(
+                raise BoltTypeError(
                     f"Function '{expr.callee.name}' expected {sig.arity} argument(s) but got {len(expr.args)}",
                     expr.line,
                 )
             for i, arg_type in enumerate(arg_types):
                 expected = sig.param_types[i]
                 if not _compatible(expected, arg_type):
-                    raise NexusTypeError(
+                    raise BoltTypeError(
                         f"Argument {i + 1} to '{expr.callee.name}' expected {expected}, got {arg_type}",
                         expr.line,
                     )

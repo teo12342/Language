@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from enum import Enum, auto
 
-from .errors import NexusSyntaxError
+from .errors import BoltSyntaxError
 
 
 class TokenType(Enum):
@@ -174,7 +174,7 @@ class Lexer:
             if self._match("="):
                 self._add_token(TokenType.BANGEQ)
             else:
-                raise NexusSyntaxError(f"Unexpected character '!'", self.line)
+                raise BoltSyntaxError(f"Unexpected character '!'", self.line)
         elif c == "<":
             self._add_token(TokenType.LTEQ if self._match("=") else TokenType.LT)
         elif c == ">":
@@ -186,7 +186,7 @@ class Lexer:
         elif c.isalpha() or c == "_":
             self._identifier()
         else:
-            raise NexusSyntaxError(f"Unexpected character '{c}'", self.line)
+            raise BoltSyntaxError(f"Unexpected character '{c}'", self.line)
 
     def _string(self):
         value_chars = []
@@ -204,7 +204,7 @@ class Lexer:
                 value_chars.append(ch)
 
         if self._at_end():
-            raise NexusSyntaxError("Unterminated string", start_line)
+            raise BoltSyntaxError("Unterminated string", start_line)
 
         self._advance()  # closing quote
         self._add_token(TokenType.STRING, "".join(value_chars))

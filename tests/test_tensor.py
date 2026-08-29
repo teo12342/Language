@@ -3,13 +3,13 @@ import sys
 
 import pytest
 
-from nexus.builtins import make_builtins
-from nexus.compiler import compile_program
-from nexus.errors import NexusRuntimeError
-from nexus.lexer import Lexer
-from nexus.parser import Parser
-from nexus.tensor import Tensor, dot, matmul
-from nexus.vm import VM
+from bolt.builtins import make_builtins
+from bolt.compiler import compile_program
+from bolt.errors import BoltRuntimeError
+from bolt.lexer import Lexer
+from bolt.parser import Parser
+from bolt.tensor import Tensor, dot, matmul
+from bolt.vm import VM
 
 
 def run_and_capture(source):
@@ -88,7 +88,7 @@ def test_tensor_end_to_end_via_vm():
 
 
 def test_tensor_shape_mismatch_is_runtime_error():
-    with pytest.raises(NexusRuntimeError):
+    with pytest.raises(BoltRuntimeError):
         run_and_capture(
             """
             let a = tensor([1, 2, 3])

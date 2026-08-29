@@ -3,7 +3,7 @@ from .ast_nodes import (
     ForStmt, FuncExpr, FuncStmt, GetAttr, IfStmt, Index, LetStmt, ListLiteral,
     Literal, Logical, MapLiteral, ReturnStmt, Stmt, Unary, Variable, WhileStmt,
 )
-from .errors import NexusSyntaxError
+from .errors import BoltSyntaxError
 from .lexer import Token, TokenType as T
 
 
@@ -43,7 +43,7 @@ class Parser:
     def _consume(self, type_: T, message: str) -> Token:
         if self._check(type_):
             return self._advance()
-        raise NexusSyntaxError(message, self._peek().line)
+        raise BoltSyntaxError(message, self._peek().line)
 
     def _skip_newlines(self):
         while self._match(T.NEWLINE, T.SEMICOLON):
@@ -192,7 +192,7 @@ class Parser:
         if self._at_end() or self._check(T.RBRACE):
             return
         if not self._match(T.NEWLINE, T.SEMICOLON):
-            raise NexusSyntaxError("Expected end of statement", self._peek().line)
+            raise BoltSyntaxError("Expected end of statement", self._peek().line)
         self._skip_newlines()
 
     # ---- expressions (precedence climbing) ----
@@ -207,7 +207,7 @@ class Parser:
             value = self._assignment()
             if isinstance(expr, (Variable, Index, GetAttr)):
                 return Assign(expr, value, line)
-            raise NexusSyntaxError("Invalid assignment target", line)
+            raise BoltSyntaxError("Invalid assignment target", line)
         return expr
 
     def _or(self) -> Expr:
@@ -345,4 +345,4 @@ class Parser:
             self._consume(T.RBRACE, "Expected '}' after map entries")
             return MapLiteral(keys, values, tok.line)
 
-        raise NexusSyntaxError(f"Unexpected token '{tok.lexeme}'", tok.line)
+        raise BoltSyntaxError(f"Unexpected token '{tok.lexeme}'", tok.line)

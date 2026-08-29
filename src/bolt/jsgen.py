@@ -1,4 +1,4 @@
-"""Transpiles a Nexus AST directly to JavaScript.
+"""Transpiles a Bolt AST directly to JavaScript.
 
 Reuses the same AST the interpreter/VM consume - no separate IR. JS gets
 this "for free" compared to the bytecode VM because it already has native

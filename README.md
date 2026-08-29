@@ -1,6 +1,6 @@
-# Nexus
+# Bolt
 
-Nexus is a small, general-purpose scripting language implemented in Python,
+Bolt is a small, general-purpose scripting language implemented in Python,
 with clean, readable syntax. All five phases of the original roadmap are now
 in place: a bytecode VM, gradual static typing, tensors, an AOT native
 backend for hot numeric code, and a JavaScript transpiler for the web.
@@ -23,10 +23,10 @@ backend for hot numeric code, and a JavaScript transpiler for the web.
 ## Quick start
 
 ```bash
-python cli.py examples/fibonacci.nx                 # bytecode VM (default)
-python cli.py --engine tree examples/fibonacci.nx    # tree-walking interpreter
-python cli.py --native examples/bench_native.nx      # AOT-compile eligible functions
-python cli.py --target js examples/fibonacci.nx      # write fibonacci.js, then: node fibonacci.js
+python cli.py examples/fibonacci.bo                 # bytecode VM (default)
+python cli.py --engine tree examples/fibonacci.bo    # tree-walking interpreter
+python cli.py --native examples/bench_native.bo      # AOT-compile eligible functions
+python cli.py --target js examples/fibonacci.bo      # write fibonacci.js, then: node fibonacci.js
 ```
 
 No dependencies are required to run scripts (the native backend needs
@@ -191,20 +191,20 @@ is reported and simply keeps running on the VM/interpreter — a script can
 freely mix both.
 
 ```bash
-python cli.py --native examples/bench_native.nx
+python cli.py --native examples/bench_native.bo
 # [native] compiled: fib
 # [native] skipped 'make_list': ...
 ```
 
 ### Web target (`--target js`)
 
-`python cli.py --target js script.nx` writes `script.js` next to it — a
+`python cli.py --target js script.bo` writes `script.js` next to it — a
 self-contained file (small runtime prelude + your program) that runs in
 Node or any browser, no build step or dependency. JavaScript already has
 closures, dynamic typing, and GC'd arrays/objects, so the transpiler is a
 fairly direct structural translation (unlike the bytecode VM, which had to
 build all of that itself). Known gaps: JS numbers are float64, so scripts
-that rely on Python/Nexus's arbitrary-precision integers (e.g. a
+that rely on Python/Bolt's arbitrary-precision integers (e.g. a
 multiply-heavy PRNG) can diverge numerically; `==`/`!=` on lists/maps is
 reference equality in JS, not the VM's structural equality; and the
 `tensor` builtins aren't available in the generated JS runtime yet.
@@ -212,7 +212,7 @@ reference equality in JS, not the VM's structural equality; and the
 ## Project structure
 
 ```
-src/nexus/
+src/bolt/
   lexer.py         tokenizer
   parser.py        recursive-descent parser -> AST
   ast_nodes.py     AST node definitions
@@ -226,10 +226,10 @@ src/nexus/
   native.py        AOT compiler: eligible functions -> C -> gcc -> ctypes
   jsgen.py         AST -> JavaScript transpiler, for the web target
   builtins.py      built-in functions, shared by both interpreting engines
-  errors.py        NexusSyntaxError / NexusRuntimeError / NexusTypeError / NativeCompileError
+  errors.py        BoltSyntaxError / BoltRuntimeError / BoltTypeError / NativeCompileError
 cli.py             entry point: run, --engine vm|tree, --native, --target run|js, --no-typecheck
-examples/          example .nx scripts (bench.nx/.py for benchmarking, typed.nx,
-                    tensor.nx, bench_native.nx for --native)
+examples/          example .bo scripts (bench.bo/.py for benchmarking, typed.bo,
+                    tensor.bo, bench_native.bo for --native)
 tests/             pytest suite: lexer, parser, interpreter, VM, typechecker,
                     tensor, native (skipped if no gcc), JS transpiler (skipped if no node)
 ```

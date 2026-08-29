@@ -1,7 +1,7 @@
 import pytest
 
-from nexus.errors import NexusSyntaxError
-from nexus.lexer import Lexer, TokenType as T
+from bolt.errors import BoltSyntaxError
+from bolt.lexer import Lexer, TokenType as T
 
 
 def types_of(source):
@@ -36,7 +36,7 @@ def test_operators():
 
 
 def test_unterminated_string_raises():
-    with pytest.raises(NexusSyntaxError):
+    with pytest.raises(BoltSyntaxError):
         Lexer('"unterminated').tokenize()
 
 
