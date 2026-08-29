@@ -1,0 +1,85 @@
+name: Build Bolt Studio (Windows exe)
+
+on:
+  workflow_dispatch: {}
+  push:
+    tags:
+      - "bolt-studio-v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-2022
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout Bolt (this repo)
+        uses: actions/checkout@v4
+        with:
+          path: bolt-repo
+
+      - name: Clone VSCodium build tooling
+        run: git clone --depth 1 https://github.com/VSCodium/vscodium.git vscodium-src
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: vscodium-src/.nvmrc
+
+      - name: Setup Python 3
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Apply Bolt Studio branding
+        run: cp bolt-repo/editor/branding/product.json vscodium-src/product.json
+
+      - name: Fetch upstream VS Code source
+        working-directory: vscodium-src
+        env:
+          CI_BUILD: "no"
+          VSCODE_QUALITY: stable
+          OS_NAME: windows
+          VSCODE_ARCH: x64
+        run: ./get_repo.sh
+
+      - name: Bake in Bolt language support
+        run: |
+          rm -rf vscodium-src/vscode/extensions/bolt-lang
+          cp -r bolt-repo/editor/vscode-bolt vscodium-src/vscode/extensions/bolt-lang
+
+      - name: Build Bolt Studio
+        working-directory: vscodium-src
+        env:
+          CI_BUILD: "no"
+          VSCODE_QUALITY: stable
+          SHOULD_BUILD: "yes"
+          SHOULD_BUILD_REH: "no"
+          SHOULD_BUILD_REH_WEB: "no"
+          OS_NAME: windows
+          VSCODE_ARCH: x64
+          NODE_OPTIONS: "--max-old-space-size=8192"
+        run: ./build.sh
+
+      - name: Locate and zip the build output
+        run: |
+          set -ex
+          OUT_DIR=$(ls -d vscodium-src/VSCode-win32-x64 2>/dev/null || ls -d VSCode-win32-x64)
+          ls "$OUT_DIR"
+          7z a BoltStudio-win32-x64.zip "$OUT_DIR"/*
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: BoltStudio-win32-x64
+          path: BoltStudio-win32-x64.zip
+          retention-days: 30
+
+      - name: Attach to GitHub release
+        if: startsWith(github.ref, 'refs/tags/bolt-studio-v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: BoltStudio-win32-x64.zip
