@@ -343,6 +343,10 @@ class JSGen:
             # silently emitting a call to it would produce syntactically
             # valid but semantically wrong JS instead of a clear error.
             raise JSGenError("import() is not supported by --target js (VM/tree-walker only)", expr.line)
+        if isinstance(expr.callee, Variable) and expr.callee.name == "pyimport":
+            # pyimport() loads real Python code - meaningless once transpiled
+            # to standalone JS, which has no Python runtime to call into.
+            raise JSGenError("pyimport() is not supported by --target js (VM/tree-walker only)", expr.line)
         if isinstance(expr.callee, Variable) and expr.callee.name in _BUILTIN_MAP:
             callee = _BUILTIN_MAP[expr.callee.name]
         else:

@@ -2,6 +2,33 @@
 
 All notable changes to Bolt, by version.
 
+## v0.11.0
+
+A Python interop bridge - the shortcut approach to the ecosystem gap
+instead of writing every library by hand: borrow Python's ecosystem the
+way Deno stayed npm-compatible instead of rebuilding one.
+
+- New `pyimport(name)` builtin: loads a real Python standard-library
+  module and returns a Bolt map of its public functions and constants,
+  callable directly from Bolt code (`let m = pyimport("statistics");
+  m.mean([1, 2, 3])`). Works on both engines identically.
+- Restricted to a curated allowlist of safe, side-effect-free stdlib
+  modules (`math`, `random`, `statistics`, `json`, `re`, `itertools`,
+  `datetime`, `string`, `collections`, `functools`, `fractions`,
+  `decimal`, `textwrap`, `unicodedata`, `calendar`, `bisect`, `heapq`) -
+  this is a bridge to safe library code, not a general FFI; modules like
+  `os` or `subprocess` are rejected with a clear error rather than giving
+  Bolt scripts shell/filesystem access.
+- Python exceptions raised by the called function surface as normal
+  `BoltRuntimeError`s instead of crashing the interpreter.
+- Not available under `--target js` (transpiled output has no Python
+  runtime to call into), same as `import()`.
+
+9 new tests (114 total): real stdlib calls verified against actual
+computed values, constants, caching, both engines, the allowlist
+rejecting `os`/`subprocess`/`sys`, Python-exception wrapping, and the JS
+rejection path.
+
 ## v0.10.0
 
 A real module system - the start of an actual answer to Bolt's lowest

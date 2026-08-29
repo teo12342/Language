@@ -1,4 +1,5 @@
 import http.server
+import importlib
 import math
 from pathlib import Path
 
@@ -390,6 +391,83 @@ def _make_import():
     return _import
 
 
+# Curated set of standard-library modules pyimport() may load. This is not
+# a general FFI: it's deliberately restricted to safe, side-effect-free
+# stdlib modules so `pyimport("os")` (or `subprocess`, `sys`, ...) can't be
+# used to shell out or touch the filesystem/network from Bolt code.
+_PYIMPORT_ALLOWLIST = {
+    "math", "random", "statistics", "json", "re", "itertools",
+    "datetime", "string", "collections", "functools", "fractions",
+    "decimal", "textwrap", "unicodedata", "calendar", "bisect", "heapq",
+}
+
+
+def _py_to_bolt(value):
+    # Bolt's own values (numbers, str, bool, None, list, dict) already are
+    # the matching Python types; only a few Python-only shapes need mapping.
+    if isinstance(value, tuple):
+        return [_py_to_bolt(v) for v in value]
+    if isinstance(value, list):
+        return [_py_to_bolt(v) for v in value]
+    if isinstance(value, dict):
+        return {k: _py_to_bolt(v) for k, v in value.items()}
+    return value
+
+
+def _wrap_py_callable(fn):
+    def _wrapped(*args):
+        try:
+            return _py_to_bolt(fn(*args))
+        except BoltRuntimeError:
+            raise
+        except Exception as e:
+            raise BoltRuntimeError(f"Python error in '{fn.__name__ if hasattr(fn, '__name__') else fn}': {e}")
+
+    return _wrapped
+
+
+def _make_pyimport():
+    """pyimport(name): load a real Python standard-library module and
+    return a Bolt map of its public functions/constants, so Bolt code can
+    call straight into Python (e.g. `let m = pyimport("statistics")`,
+    `m.median([1, 2, 3])`). This is the interop bridge to Python's
+    ecosystem: instead of Bolt reimplementing every useful function, it
+    can borrow Python's - the same shortcut Deno took by staying
+    npm-compatible instead of building a whole new JS package ecosystem.
+
+    Restricted to `_PYIMPORT_ALLOWLIST` (safe stdlib modules only, no
+    filesystem/network/process access) since this loads real Python code
+    for execution - an unrestricted `pyimport(any_name)` would let Bolt
+    scripts shell out via `os`/`subprocess`.
+    """
+    cache: dict[str, dict] = {}
+
+    def _pyimport(name):
+        if not isinstance(name, str):
+            raise BoltRuntimeError("pyimport() expects a module name string")
+        if name in cache:
+            return cache[name]
+        if name not in _PYIMPORT_ALLOWLIST:
+            raise BoltRuntimeError(
+                f"pyimport(): '{name}' is not in the allowed module list. "
+                f"Allowed: {', '.join(sorted(_PYIMPORT_ALLOWLIST))}"
+            )
+        module = importlib.import_module(name)
+        exported = {}
+        for attr in dir(module):
+            if attr.startswith("_"):
+                continue
+            value = getattr(module, attr)
+            if callable(value):
+                exported[attr] = _wrap_py_callable(value)
+            elif isinstance(value, (int, float, str, bool)):
+                exported[attr] = value
+        cache[name] = exported
+        return exported
+
+    return _pyimport
+
+
 def _make_serve(call_fn):
     """serve(port, handler, max_requests=1): a real HTTP server.
 
@@ -488,4 +566,5 @@ def make_builtins(call_fn=None) -> dict[str, object]:
         "concat": _nx_concat,
         "serve": _make_serve(call_fn),
         "import": _make_import(),
+        "pyimport": _make_pyimport(),
     }

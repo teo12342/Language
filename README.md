@@ -194,6 +194,7 @@ print(map.a)          # dot access also works on maps
 | `tmap(t, fn)` | Apply a Bolt function elementwise over a tensor |
 | `serve(port, handler, max_requests=1)` | Start a real HTTP server; see below |
 | `import(path)` | Load another `.bo` file as a module; see below |
+| `pyimport(name)` | Load an allowlisted Python standard-library module; see below |
 
 ### Built-in web server (`serve`)
 
@@ -254,6 +255,40 @@ foothold for code reuse, not an ecosystem; see the comparison page for
 how far that gap still is. Not available when transpiling with
 `--target js` (fails with a clear error rather than generating broken
 JS, since `import` is itself a reserved word in JavaScript).
+
+### Python interop (`pyimport`)
+
+Bolt's own standard library is tiny compared to Python's ~500,000
+packages, and that gap won't close by writing more Bolt code alone.
+`pyimport(name)` is a shortcut instead: it loads a real Python
+standard-library module and hands back its public functions/constants as
+a normal Bolt map, so Bolt code can call straight into Python:
+
+```
+let stats = pyimport("statistics")
+print(stats.mean([4, 8, 15, 16, 23, 42]))   # 18
+print(stats.median([4, 8, 15, 16, 23, 42])) # 15.5
+
+let math = pyimport("math")
+print(math.pi)                              # 3.141592653589793
+```
+
+Same idea as Deno staying npm-compatible instead of rebuilding a whole
+new JS package ecosystem from scratch — borrow an existing ecosystem
+rather than reimplement it one function at a time.
+
+Deliberately restricted to a curated allowlist of safe, side-effect-free
+stdlib modules (`math`, `random`, `statistics`, `json`, `re`,
+`itertools`, `datetime`, `string`, `collections`, `functools`,
+`fractions`, `decimal`, `textwrap`, `unicodedata`, `calendar`, `bisect`,
+`heapq`) — this is a bridge to safe library code, not a general FFI.
+`pyimport("os")` or `pyimport("subprocess")` fail with a clear error
+rather than giving Bolt scripts shell or filesystem access. A Python
+exception raised by the called function surfaces as a normal
+`BoltRuntimeError` instead of crashing the interpreter. Works
+identically on both engines; not available under `--target js`
+(transpiled output has no Python runtime to call into). See
+`examples/pyimport_demo.bo`.
 
 ### Native compilation (`--native`)
 
@@ -317,19 +352,21 @@ src/bolt/
   native.py        AOT compiler: eligible functions -> C -> gcc -> ctypes
   jsgen.py         AST -> JavaScript transpiler, for the web target
   builtins.py      built-in functions, shared by both interpreting engines
-                    (incl. serve(), a real HTTP server, and import(), a module
-                    loader - both via a call_fn callback that lets a builtin
+                    (incl. serve(), a real HTTP server; import(), a module
+                    loader; and pyimport(), a Python-stdlib interop bridge -
+                    the first two via a call_fn callback that lets a builtin
                     call back into Bolt code)
   errors.py        BoltSyntaxError / BoltRuntimeError / BoltTypeError / NativeCompileError
 cli.py             entry point: run, --engine vm|tree, --native, --target run|js, --no-typecheck
 packages/          the local package registry: mathutils.bo, stringutils.bo, stats.bo
 examples/          example .bo scripts (bench.bo/.py for benchmarking, typed.bo,
                     tensor.bo, bench_native.bo for --native, webserver.bo for serve(),
-                    packages_demo.bo for import())
+                    packages_demo.bo for import(), pyimport_demo.bo for pyimport())
 tests/             pytest suite: lexer, parser, interpreter, VM, typechecker,
                     tensor, native (skipped if no gcc), JS transpiler (skipped if no node),
                     webserver (spawns the CLI and makes real HTTP requests against it),
-                    packages (import() correctness, including cross-CWD resolution)
+                    packages (import() correctness, including cross-CWD resolution),
+                    pyimport (real stdlib calls, allowlist rejection, both engines)
 ```
 
 ## Roadmap
