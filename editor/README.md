@@ -60,3 +60,10 @@ other built-in language (Python, JS, etc.) already gets in VS Code itself.
 It does not (yet) include a language server - no autocomplete, no inline
 type-error checking, no go-to-definition. That would be a real follow-on
 project (a Bolt LSP), separate from this one.
+
+The same bundled extension also ships a **Bolt Dark** color theme (`editor/
+vscode-bolt/themes/bolt-dark-color-theme.json`) - a full workbench theme
+(activity bar, tabs, status bar, buttons, editor chrome, not just syntax
+colors) built around Bolt's own brand palette (the warm dark background and
+orange accent used on the language's comparison page), selectable from
+VS Code's own theme picker (`Ctrl+K Ctrl+T`) like any other theme.

@@ -1,13 +1,13 @@
 {
   "name": "bolt-lang",
   "displayName": "Bolt Language",
-  "description": "Syntax highlighting and language configuration for the Bolt programming language (.bo files).",
-  "version": "0.1.0",
+  "description": "Syntax highlighting, language configuration, and a Bolt-branded color theme for the Bolt programming language (.bo files).",
+  "version": "0.2.0",
   "publisher": "bolt-lang",
   "engines": {
     "vscode": "^1.75.0"
   },
-  "categories": ["Programming Languages"],
+  "categories": ["Programming Languages", "Themes"],
   "contributes": {
     "languages": [
       {
@@ -26,6 +26,13 @@
         "language": "bolt",
         "scopeName": "source.bolt",
         "path": "./syntaxes/bolt.tmLanguage.json"
+      }
+    ],
+    "themes": [
+      {
+        "label": "Bolt Dark",
+        "uiTheme": "vs-dark",
+        "path": "./themes/bolt-dark-color-theme.json"
       }
     ]
   }
