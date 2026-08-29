@@ -180,13 +180,15 @@ print(map.a)          # dot access also works on maps
 
 Any top-level `func` whose parameters *and* return type are all annotated
 `number` — and whose body only uses arithmetic, comparisons, `if`/`while`,
-`return`, and calls to other such functions (including itself, for
-recursion) — is eligible. Eligible functions get compiled to C, built
-with `gcc -O2`, and loaded back via `ctypes`; the compiled version replaces
-the interpreted one under the same name, so every call site (recursive
-calls included) transparently runs at native speed. Anything not eligible
-(strings, lists, maps, tensors, closures, untyped params) is reported and
-simply keeps running on the VM/interpreter — a script can freely mix both.
+`for x in range(...)`, `return`, and calls to other such functions
+(including itself, for recursion) — is eligible. Eligible functions get
+compiled to C, built with `gcc -O2`, and loaded back via `ctypes`; the
+compiled version replaces the interpreted one under the same name, so
+every call site (recursive calls included) transparently runs at native
+speed. Anything not eligible (strings, lists, maps, tensors, closures,
+untyped params, break/continue, a `for` over anything but `range(...)`)
+is reported and simply keeps running on the VM/interpreter — a script can
+freely mix both.
 
 ```bash
 python cli.py --native examples/bench_native.nx

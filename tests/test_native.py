@@ -75,6 +75,60 @@ def test_while_loop_and_locals():
     assert wrappers["sum_to"](10) == 45
 
 
+def test_for_range_loop():
+    stmts = parse(
+        """
+        func sum_range(n: number): number {
+            let total = 0
+            for i in range(n) {
+                total = total + i
+            }
+            return total
+        }
+        """
+    )
+    wrappers, compiled, _ = compile_native(stmts)
+    assert compiled == ["sum_range"]
+    assert wrappers["sum_range"](10) == 45
+    assert wrappers["sum_range"](1000) == 499500
+
+
+def test_for_range_with_start_stop_step():
+    stmts = parse(
+        """
+        func sum_evens(n: number): number {
+            let total = 0
+            for i in range(0, n, 2) {
+                total = total + i
+            }
+            return total
+        }
+        """
+    )
+    wrappers, _, _ = compile_native(stmts)
+    assert wrappers["sum_evens"](10) == 0 + 2 + 4 + 6 + 8
+
+
+def test_for_over_non_range_is_skipped_not_fatal():
+    stmts = parse(
+        """
+        func f(n: number): number {
+            let total = 0
+            for i in n {
+                total = total + i
+            }
+            return total
+        }
+        func g(n: number): number {
+            return n * 2
+        }
+        """
+    )
+    wrappers, compiled, skipped = compile_native(stmts)
+    assert compiled == ["g"]
+    assert "f" in skipped
+
+
 def test_no_eligible_functions_raises():
     stmts = parse('func greet(name: string): string { return name }')
     with pytest.raises(NativeCompileError):
