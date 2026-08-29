@@ -11,13 +11,16 @@ from nexus.errors import NexusError
 from nexus.interpreter import Interpreter
 from nexus.lexer import Lexer
 from nexus.parser import Parser
+from nexus.typechecker import check_types
 from nexus.vm import VM
 
 
-def run_source(source: str, engine: str = "vm") -> int:
+def run_source(source: str, engine: str = "vm", typecheck: bool = True) -> int:
     try:
         tokens = Lexer(source).tokenize()
         statements = Parser(tokens).parse()
+        if typecheck:
+            check_types(statements)
         if engine == "vm":
             proto = compile_program(statements)
             VM(make_builtins()).run_program(proto)
@@ -36,6 +39,10 @@ def main():
         "--engine", choices=["vm", "tree"], default="vm",
         help="Execution engine: 'vm' (bytecode VM, default) or 'tree' (tree-walking interpreter)",
     )
+    parser.add_argument(
+        "--no-typecheck", action="store_true",
+        help="Skip the static type checker (only annotated code is ever checked)",
+    )
     args = parser.parse_args()
 
     path = Path(args.script)
@@ -44,7 +51,7 @@ def main():
         sys.exit(1)
 
     source = path.read_text()
-    sys.exit(run_source(source, engine=args.engine))
+    sys.exit(run_source(source, engine=args.engine, typecheck=not args.no_typecheck))
 
 
 if __name__ == "__main__":

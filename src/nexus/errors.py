@@ -14,3 +14,7 @@ class NexusSyntaxError(NexusError):
 
 class NexusRuntimeError(NexusError):
     pass
+
+
+class NexusTypeError(NexusError):
+    pass

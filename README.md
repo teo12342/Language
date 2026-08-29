@@ -86,6 +86,34 @@ for n in range(5) {
 }
 ```
 
+### Gradual static typing
+
+Annotate `let` bindings, function parameters, and return types where you
+want them checked; anything unannotated stays fully dynamic (`any`), so
+existing untyped scripts are unaffected. The checker runs before your
+script executes (`--no-typecheck` skips it) and mirrors real runtime
+behavior — e.g. `+` between a string and a number is allowed, since that's
+what the runtime actually does.
+
+```
+func add(a: number, b: number): number {
+    return a + b
+}
+
+let total: number = add(2, 3)   # ok
+let total: number = "oops"       # Type error: Cannot assign string to 'total' declared as number
+
+let anything = 1   # unannotated: still fully dynamic
+anything = "now a string"
+anything = [1, 2, 3]
+```
+
+Checked: `let`/reassignment against a declared type, function argument
+count and types against declared parameter types, `return` values against
+a declared return type, and arithmetic/comparison operators against
+`number`. Not yet checked: element types inside `list`/`map` (no generics
+yet), and `dict`/index access always types as `any`.
+
 ### Data types
 
 ```
@@ -128,11 +156,13 @@ src/nexus/
   compiler.py      AST -> bytecode compiler (locals/globals/upvalue resolution,
                     jump patching for control flow)
   vm.py            stack-based bytecode VM (Cell/Closure runtime types)
+  typechecker.py   gradual static type checker, runs before execution
   builtins.py      built-in functions, shared by both engines
-  errors.py        NexusSyntaxError / NexusRuntimeError, with line numbers
-cli.py             entry point: `python cli.py script.nx [--engine vm|tree]`
-examples/          example .nx scripts, incl. bench.nx / bench.py for benchmarking
-tests/             pytest suite covering the lexer, parser, interpreter, and VM
+  errors.py        NexusSyntaxError / NexusRuntimeError / NexusTypeError
+cli.py             entry point: `python cli.py script.nx [--engine vm|tree] [--no-typecheck]`
+examples/          example .nx scripts, incl. bench.nx / bench.py for benchmarking,
+                    typed.nx for gradual typing
+tests/             pytest suite covering the lexer, parser, interpreter, VM, and typechecker
 ```
 
 ## Roadmap
@@ -144,8 +174,12 @@ over raw performance. Future phases, roughly in order:
    stack machine; ~1.7x faster than tree-walking on the benchmark suite.
    Next optimization step would be a proper opcode dispatch table and
    avoiding per-instruction Python-object overhead, before reaching for (2).
-2. **Optional static typing** — gradual type annotations and a type
-   checker, without giving up dynamic-language ergonomics.
+2. ~~**Optional static typing**~~ — done. `let`/parameter/return type
+   annotations, checked by a static pass that runs before execution.
+   Unannotated code stays fully dynamic — zero false positives on any
+   existing untyped script. No generics yet (list/map element types,
+   index/attribute access all type as `any`); that's the natural next
+   refinement of this phase before moving to (3).
 3. **Numeric/tensor support** — native array/tensor types and vectorized
    math ops, aimed at making Nexus viable for numerical and ML workloads.
 4. **Native/compiled backend** — compile to native code (e.g. via LLVM) for
