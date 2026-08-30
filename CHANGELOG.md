@@ -2,6 +2,22 @@
 
 All notable changes to Bolt, by version.
 
+## Unreleased
+
+Bolt Studio's release build switched from a zip of the portable
+VSCodium build to a proper Windows installer:
+
+- `.github/workflows/build-bolt-studio.yml` now locates the Inno
+  Setup `.exe` that VSCodium's own `build.sh` already produces as part
+  of a normal Windows build (previously ignored in favor of zipping
+  the raw `VSCode-win32-x64/` folder) - `BoltStudio-Setup-win32-x64.exe`
+  - and attaches that to the GitHub release instead. Fails loudly with
+  a clear error if no setup exe is found, rather than silently doing
+  nothing.
+- Reasoning: a single-file installer is a more familiar, more
+  trustworthy download than a 220MB zip a user has to extract by
+  hand, especially for an unsigned build.
+
 ## v0.17.1
 
 Started the freestanding/bare-metal roadmap (`native/freestanding/`) —
