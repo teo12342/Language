@@ -68,22 +68,30 @@ jobs:
           NODE_OPTIONS: "--max-old-space-size=8192"
         run: ./build.sh
 
-      - name: Locate and zip the build output
+      - name: Locate the installer exe
         run: |
           set -ex
-          OUT_DIR=$(ls -d vscodium-src/VSCode-win32-x64 2>/dev/null || ls -d VSCode-win32-x64)
-          ls "$OUT_DIR"
-          7z a BoltStudio-win32-x64.zip "$OUT_DIR"/*
+          # VSCodium's build.sh already runs Inno Setup as part of a normal
+          # Windows build and produces a single-file installer (not just the
+          # portable VSCode-win32-x64/ folder) - find it instead of zipping
+          # the raw folder, so users get a "download one exe, run it" flow.
+          SETUP_EXE=$(find vscodium-src -maxdepth 4 -iname "*Setup*x64*.exe" ! -iname "*User*" | head -n1)
+          if [ -z "$SETUP_EXE" ]; then
+            echo "::error::No Inno Setup installer .exe found under vscodium-src - check that VSCODE_ARCH/OS_NAME triggered the Windows system-setup target."
+            find vscodium-src -maxdepth 4 -iname "*.exe"
+            exit 1
+          fi
+          cp "$SETUP_EXE" BoltStudio-Setup-win32-x64.exe
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: BoltStudio-win32-x64
-          path: BoltStudio-win32-x64.zip
+          name: BoltStudio-Setup-win32-x64
+          path: BoltStudio-Setup-win32-x64.exe
           retention-days: 30
 
       - name: Attach to GitHub release
         if: startsWith(github.ref, 'refs/tags/bolt-studio-v')
         uses: softprops/action-gh-release@v2
         with:
-          files: BoltStudio-win32-x64.zip
+          files: BoltStudio-Setup-win32-x64.exe
