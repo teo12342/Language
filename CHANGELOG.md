@@ -2,6 +2,34 @@
 
 All notable changes to Bolt, by version.
 
+## v0.17.0
+
+New: `native/bolt.c` — a from-scratch, standalone native Bolt
+interpreter written in C, with no Python runtime dependency
+(Windows/MSVC for now). This is a new, smaller implementation, not a
+full port of the Python VM.
+
+- Covers a real subset of the language: numbers, strings, booleans,
+  nil, lists, maps, functions/closures, recursion (verified to
+  50,000+ levels with a 64MB stack), control flow, and a core builtin
+  set. Verified byte-for-byte against the Python implementation's
+  output on `examples/loops.bo`, `examples/closures.bo`, and
+  `examples/fibonacci.bo`.
+- Game-dev builtins (`window`, `tick`, `clear`, `rect`, `circle`,
+  `line`, `draw_text`, `key`, `mouse_x`/`mouse_y`/`mouse_down`,
+  `close_window`, `beep`, `rects_overlap`) are reimplemented natively
+  on real Win32/GDI instead of tkinter/winsound — verified end-to-end
+  with a real window that opens, draws, and self-closes.
+- Honestly incomplete: no gradual typing, tensors, `import()`, or
+  `pyimport()` (which can't exist here by definition — no Python
+  runtime to call into); no bytecode VM or `--native` AOT path yet
+  (tree-walking only); no garbage collector (values are arena-leaked
+  for the process lifetime); most of the string/list stdlib
+  (`sort`, `replace`, `slice`, etc.) isn't ported yet. See
+  `native/README.md` for the full honest scope.
+- This is additive — the existing Python-based interpreter, VM,
+  `--native` compiler, and JS transpiler are unchanged.
+
 ## v0.16.0
 
 More game-dev primitives: mouse input, a line-drawing helper, and

@@ -4,4 +4,8 @@ __pycache__/
 examples/*.js
 *.so
 *.c
+!native/bolt.c
 editor/.vscodium-src/
+native/*.exe
+native/*.obj
+native/*.bo
