@@ -2,6 +2,25 @@
 
 All notable changes to Bolt, by version.
 
+## v0.17.1
+
+Started the freestanding/bare-metal roadmap (`native/freestanding/`) —
+stage 0 only, verified for real rather than just described:
+
+- `boot.asm`: a hand-written 512-byte x86 real-mode boot sector,
+  assembled with NASM, ending in the `0x55 0xAA` boot signature.
+- Installed and used a real toolchain (NASM + QEMU, via winget) to
+  actually boot it in an emulator and capture its serial output,
+  rather than claiming it works without running it. Verified output:
+  `BOLT FREESTANDING: no OS, no libc, boots on bare x86.` — written by
+  code running with nothing else present, no OS, no libc, no runtime.
+- Honestly scoped in `native/freestanding/README.md`: this is
+  hand-written assembly proving the toolchain path works, not yet a
+  bridge from Bolt source to bare metal. The path from here to an
+  actual "hello from Bolt" kernel (a freestanding C stage, raw
+  pointer/`unsafe` support in the language, a `--freestanding`
+  compiler flag) is laid out but not built yet.
+
 ## v0.17.0
 
 New: `native/bolt.c` — a from-scratch, standalone native Bolt

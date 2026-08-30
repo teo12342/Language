@@ -9,3 +9,5 @@ editor/.vscodium-src/
 native/*.exe
 native/*.obj
 native/*.bo
+native/freestanding/*.bin
+native/freestanding/serial_out.txt
