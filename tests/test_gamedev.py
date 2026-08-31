@@ -1,4 +1,37 @@
+from pathlib import Path
+
+from bolt.builtins import _load_spritesheet, _probe_image_size, _sprite_frame_count
+from bolt import sdl_backend
+
 from .test_stdlib import run_and_capture
+
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+
+
+def test_probe_image_size_reads_real_png_header():
+    # examples/run_sheet.png is a real, checked-in 64x16 PNG (4 frames of
+    # 16x16) - read via the raw IHDR-chunk parser, not a library, so this
+    # also proves that parser is correct against a real file, not just a
+    # synthetic byte string.
+    w, h = _probe_image_size(str(_REPO_ROOT / "examples" / "run_sheet.png"))
+    assert (w, h) == (64, 16)
+
+
+def test_load_spritesheet_frame_count_matches_real_asset():
+    sheet = _load_spritesheet(str(_REPO_ROOT / "examples" / "run_sheet.png"), 16, 16)
+    assert (sheet.cols, sheet.rows, sheet.count) == (4, 1, 4)
+    assert _sprite_frame_count(sheet) == 4
+
+
+def test_sdl_backend_pack_color_matches_verified_channel_order():
+    # SDL2_gfx's Uint32 color format is 0xAABBGGRR (R in the lowest byte),
+    # confirmed empirically against real rendered+read-back pixels (see
+    # sdl_backend.py's _pack_color docstring/comment) - not the more
+    # commonly assumed 0xRRGGBBAA, which silently rendered nothing at all
+    # (alpha ended up 0). This locks that finding in as a regression test.
+    packed = sdl_backend._pack_color("#e2895f")
+    assert packed == 0xFF5F89E2  # (A=255)<<24 | (B=0x5F)<<16 | (G=0x89)<<8 | R=0xE2
+
 
 
 def test_apply_gravity():

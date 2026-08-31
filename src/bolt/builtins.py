@@ -3,6 +3,7 @@ import importlib
 import math
 from pathlib import Path
 
+from . import sdl_backend
 from .errors import BoltRuntimeError
 from .interpreter import _stringify
 from .tensor import Tensor
@@ -525,14 +526,28 @@ class _BoltWindow:
         return f"<window {self.width}x{self.height} {state}>"
 
 
+_WINDOW_TYPES = (_BoltWindow, sdl_backend.SDLWindow)
+
+
 def _require_open_window(win, fn_name):
-    if not isinstance(win, _BoltWindow):
+    if not isinstance(win, _WINDOW_TYPES):
         raise BoltRuntimeError(f"{fn_name}() expects a window handle from window()")
     return not win.closed
 
 
 def _make_window():
     def _window(width, height, title="Bolt"):
+        # Real GPU-accelerated rendering (SDL2, bundled in runtime/sdl2/ -
+        # see that directory's README) when available; falls back to the
+        # original tkinter Canvas backend otherwise (non-Windows, or that
+        # directory stripped out) so nothing breaks either way. Every
+        # drawing/input builtin below dispatches on which kind of handle
+        # it got, so Bolt scripts see no difference either way.
+        if sdl_backend.available():
+            try:
+                return sdl_backend.SDLWindow(width, height, title)
+            except BoltRuntimeError:
+                pass  # fall through to tkinter if SDL2 failed to init
         return _BoltWindow(width, height, title)
 
     return _window
@@ -540,6 +555,9 @@ def _make_window():
 
 def _clear(win, color="black"):
     if not _require_open_window(win, "clear"):
+        return None
+    if isinstance(win, sdl_backend.SDLWindow):
+        win.clear(color)
         return None
     win.canvas.delete("all")
     win.canvas.configure(bg=color)
@@ -549,12 +567,18 @@ def _clear(win, color="black"):
 def _rect(win, x, y, w, h, color="white"):
     if not _require_open_window(win, "rect"):
         return None
+    if isinstance(win, sdl_backend.SDLWindow):
+        win.rect(x, y, w, h, color)
+        return None
     win.canvas.create_rectangle(x, y, x + w, y + h, fill=color, outline="")
     return None
 
 
 def _circle(win, x, y, r, color="white"):
     if not _require_open_window(win, "circle"):
+        return None
+    if isinstance(win, sdl_backend.SDLWindow):
+        win.circle(x, y, r, color)
         return None
     win.canvas.create_oval(x - r, y - r, x + r, y + r, fill=color, outline="")
     return None
@@ -563,6 +587,9 @@ def _circle(win, x, y, r, color="white"):
 def _line(win, x1, y1, x2, y2, color="white", width=1):
     if not _require_open_window(win, "line"):
         return None
+    if isinstance(win, sdl_backend.SDLWindow):
+        win.line(x1, y1, x2, y2, color, width)
+        return None
     win.canvas.create_line(x1, y1, x2, y2, fill=color, width=width)
     return None
 
@@ -570,18 +597,26 @@ def _line(win, x1, y1, x2, y2, color="white", width=1):
 def _draw_text(win, x, y, msg, color="white"):
     if not _require_open_window(win, "draw_text"):
         return None
+    if isinstance(win, sdl_backend.SDLWindow):
+        win.draw_text(x, y, _stringify(msg), color)
+        return None
     win.canvas.create_text(x, y, text=_stringify(msg), fill=color, anchor="nw")
     return None
 
 
 def _draw_image(win, path, x, y):
-    """Draws a real image (PNG or GIF - whatever tkinter's PhotoImage
-    natively decodes, no extra install) at (x, y). Images are cached per
-    window by path, both for speed and because tkinter drops a
-    PhotoImage's pixels the moment nothing keeps a Python reference to
-    it - the classic "blank canvas" tkinter sprite bug.
+    """Draws a real image at (x, y). Images are cached per window by
+    path. Under the SDL2 backend this is a real GPU texture (via
+    SDL2_image, PNG - the same format tkinter's PhotoImage decoded);
+    under the tkinter fallback it's a PhotoImage, cached for the same
+    reason as before: tkinter drops a PhotoImage's pixels the moment
+    nothing keeps a Python reference to it - the classic "blank canvas"
+    tkinter sprite bug.
     """
     if not _require_open_window(win, "draw_image"):
+        return None
+    if isinstance(win, sdl_backend.SDLWindow):
+        win.draw_image(path, x, y)
         return None
     import tkinter as tk
 
@@ -646,38 +681,44 @@ def _stop_sound():
 
 
 def _key(win, name):
-    if not isinstance(win, _BoltWindow):
+    if not isinstance(win, _WINDOW_TYPES):
         raise BoltRuntimeError("key() expects a window handle from window()")
     return str(name).lower() in win.keys_down
 
 
 def _mouse_x(win):
-    if not isinstance(win, _BoltWindow):
+    if not isinstance(win, _WINDOW_TYPES):
         raise BoltRuntimeError("mouse_x() expects a window handle from window()")
     return win.mouse_x
 
 
 def _mouse_y(win):
-    if not isinstance(win, _BoltWindow):
+    if not isinstance(win, _WINDOW_TYPES):
         raise BoltRuntimeError("mouse_y() expects a window handle from window()")
     return win.mouse_y
 
 
 def _mouse_down(win, button="left"):
-    if not isinstance(win, _BoltWindow):
+    if not isinstance(win, _WINDOW_TYPES):
         raise BoltRuntimeError("mouse_down() expects a window handle from window()")
     return str(button).lower() in win.mouse_buttons_down
 
 
 def _tick(win, fps=60):
-    """Pumps the window's event loop, draws the current frame, and paces
-    to `fps`. Returns false once the window has been closed - the natural
-    `while tick(win, 60) { ... }` game-loop condition.
+    """Pumps the window's event loop, presents the frame drawn since the
+    last tick(), and paces to `fps`. Returns false once the window has
+    been closed - the natural `while tick(win, 60) { ... }` game-loop
+    condition. Under the SDL2 backend, SDLWindow.tick() does all of
+    this itself (see sdl_backend.py); the tkinter path is unchanged
+    from before.
     """
+    if not isinstance(win, _WINDOW_TYPES):
+        raise BoltRuntimeError("tick() expects a window handle from window()")
+    if isinstance(win, sdl_backend.SDLWindow):
+        return win.tick(fps)
+
     import time
 
-    if not isinstance(win, _BoltWindow):
-        raise BoltRuntimeError("tick() expects a window handle from window()")
     if win.closed:
         return False
     try:
@@ -699,45 +740,73 @@ def _tick(win, fps=60):
 
 
 def _close_window(win):
-    if isinstance(win, _BoltWindow):
+    if isinstance(win, sdl_backend.SDLWindow):
+        win.close()
+    elif isinstance(win, _BoltWindow):
         win._on_close()
     return None
+
+
+def _probe_image_size(path):
+    """Reads an image's pixel dimensions without tying the sprite sheet
+    to any particular rendering backend (or even requiring a window to
+    exist yet) - load_spritesheet() has no window argument, and under
+    SDL2 the actual texture is created lazily, per-window, on first
+    draw (SDL2_image needs a renderer to create a texture against).
+    Reads the PNG IHDR chunk directly (no library needed) since every
+    bundled sprite asset is PNG; falls back to tkinter's PhotoImage
+    (which can decode PNG/GIF) for anything else.
+    """
+    try:
+        with open(path, "rb") as f:
+            head = f.read(33)
+    except OSError as e:
+        raise BoltRuntimeError(f"load_spritesheet(): couldn't read '{path}': {e}")
+    if head[:8] == b"\x89PNG\r\n\x1a\n" and head[12:16] == b"IHDR":
+        import struct
+
+        w, h = struct.unpack(">II", head[16:24])
+        return w, h
+    import tkinter as tk
+
+    try:
+        img = tk.PhotoImage(file=str(path))
+    except Exception as e:
+        raise BoltRuntimeError(f"load_spritesheet(): couldn't load '{path}': {e}")
+    return img.width(), img.height()
 
 
 class _BoltSpriteSheet:
     """A grid-sliced sprite sheet: one source image cut into equal-sized
     frame_w x frame_h cells, numbered left-to-right, top-to-bottom
-    starting at 0. Frames are cropped lazily (via Tk's `photo copy
-    -from` on a fresh PhotoImage, since tkinter has no public "read a
-    sub-rectangle" call) and cached, so a sheet with frames never drawn
-    costs nothing beyond loading the source image.
+    starting at 0. Backend-agnostic by design (see _probe_image_size) -
+    the actual per-backend texture/cropped-frame is created lazily on
+    first draw, in _draw_sprite() below, since that's the first point a
+    window (and therefore a specific backend) is known.
     """
 
     def __init__(self, path, frame_w, frame_h):
-        import tkinter as tk
-
-        try:
-            self.source = tk.PhotoImage(file=path)
-        except Exception as e:
-            raise BoltRuntimeError(f"load_spritesheet(): couldn't load '{path}': {e}")
+        self.path = str(path)
         self.frame_w = int(frame_w)
         self.frame_h = int(frame_h)
         if self.frame_w <= 0 or self.frame_h <= 0:
             raise BoltRuntimeError("load_spritesheet(): frame width/height must be positive")
-        self.cols = max(1, self.source.width() // self.frame_w)
-        self.rows = max(1, self.source.height() // self.frame_h)
+        width, height = _probe_image_size(self.path)
+        self.cols = max(1, width // self.frame_w)
+        self.rows = max(1, height // self.frame_h)
         self.count = self.cols * self.rows
-        self._frame_cache: dict[int, "tk.PhotoImage"] = {}
+        self._tk_source = None  # tkinter backend only, created lazily
+        self._tk_frame_cache: dict = {}
 
-    def frame_image(self, index):
+    def _tk_frame_image(self, index):
         import tkinter as tk
 
-        index = int(index)
-        if index < 0 or index >= self.count:
-            raise BoltRuntimeError(
-                f"sprite frame index {index} out of range (sheet has {self.count} frames)"
-            )
-        cached = self._frame_cache.get(index)
+        if self._tk_source is None:
+            try:
+                self._tk_source = tk.PhotoImage(file=self.path)
+            except Exception as e:
+                raise BoltRuntimeError(f"load_spritesheet(): couldn't load '{self.path}': {e}")
+        cached = self._tk_frame_cache.get(index)
         if cached is not None:
             return cached
         col = index % self.cols
@@ -746,11 +815,11 @@ class _BoltSpriteSheet:
         y1 = row * self.frame_h
         frame = tk.PhotoImage(width=self.frame_w, height=self.frame_h)
         frame.tk.call(
-            frame, "copy", self.source,
+            frame, "copy", self._tk_source,
             "-from", x1, y1, x1 + self.frame_w, y1 + self.frame_h,
             "-to", 0, 0,
         )
-        self._frame_cache[index] = frame
+        self._tk_frame_cache[index] = frame
         return frame
 
 
@@ -769,7 +838,17 @@ def _draw_sprite(win, sheet, frame_index, x, y):
         return None
     if not isinstance(sheet, _BoltSpriteSheet):
         raise BoltRuntimeError("draw_sprite() expects a spritesheet from load_spritesheet()")
-    win.canvas.create_image(x, y, image=sheet.frame_image(frame_index), anchor="nw")
+    frame_index = int(frame_index)
+    if frame_index < 0 or frame_index >= sheet.count:
+        raise BoltRuntimeError(
+            f"sprite frame index {frame_index} out of range (sheet has {sheet.count} frames)"
+        )
+    if isinstance(win, sdl_backend.SDLWindow):
+        col = frame_index % sheet.cols
+        row = frame_index // sheet.cols
+        win.draw_sprite_frame(sheet.path, sheet.frame_w, sheet.frame_h, col, row, x, y)
+        return None
+    win.canvas.create_image(x, y, image=sheet._tk_frame_image(frame_index), anchor="nw")
     return None
 
 
