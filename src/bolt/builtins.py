@@ -704,6 +704,287 @@ def _close_window(win):
     return None
 
 
+class _BoltSpriteSheet:
+    """A grid-sliced sprite sheet: one source image cut into equal-sized
+    frame_w x frame_h cells, numbered left-to-right, top-to-bottom
+    starting at 0. Frames are cropped lazily (via Tk's `photo copy
+    -from` on a fresh PhotoImage, since tkinter has no public "read a
+    sub-rectangle" call) and cached, so a sheet with frames never drawn
+    costs nothing beyond loading the source image.
+    """
+
+    def __init__(self, path, frame_w, frame_h):
+        import tkinter as tk
+
+        try:
+            self.source = tk.PhotoImage(file=path)
+        except Exception as e:
+            raise BoltRuntimeError(f"load_spritesheet(): couldn't load '{path}': {e}")
+        self.frame_w = int(frame_w)
+        self.frame_h = int(frame_h)
+        if self.frame_w <= 0 or self.frame_h <= 0:
+            raise BoltRuntimeError("load_spritesheet(): frame width/height must be positive")
+        self.cols = max(1, self.source.width() // self.frame_w)
+        self.rows = max(1, self.source.height() // self.frame_h)
+        self.count = self.cols * self.rows
+        self._frame_cache: dict[int, "tk.PhotoImage"] = {}
+
+    def frame_image(self, index):
+        import tkinter as tk
+
+        index = int(index)
+        if index < 0 or index >= self.count:
+            raise BoltRuntimeError(
+                f"sprite frame index {index} out of range (sheet has {self.count} frames)"
+            )
+        cached = self._frame_cache.get(index)
+        if cached is not None:
+            return cached
+        col = index % self.cols
+        row = index // self.cols
+        x1 = col * self.frame_w
+        y1 = row * self.frame_h
+        frame = tk.PhotoImage(width=self.frame_w, height=self.frame_h)
+        frame.tk.call(
+            frame, "copy", self.source,
+            "-from", x1, y1, x1 + self.frame_w, y1 + self.frame_h,
+            "-to", 0, 0,
+        )
+        self._frame_cache[index] = frame
+        return frame
+
+
+def _load_spritesheet(path, frame_w, frame_h):
+    return _BoltSpriteSheet(path, frame_w, frame_h)
+
+
+def _sprite_frame_count(sheet):
+    if not isinstance(sheet, _BoltSpriteSheet):
+        raise BoltRuntimeError("sprite_frame_count() expects a spritesheet from load_spritesheet()")
+    return sheet.count
+
+
+def _draw_sprite(win, sheet, frame_index, x, y):
+    if not _require_open_window(win, "draw_sprite"):
+        return None
+    if not isinstance(sheet, _BoltSpriteSheet):
+        raise BoltRuntimeError("draw_sprite() expects a spritesheet from load_spritesheet()")
+    win.canvas.create_image(x, y, image=sheet.frame_image(frame_index), anchor="nw")
+    return None
+
+
+class _BoltAnim:
+    """Time-driven playback state over a list of frame indices into one
+    spritesheet. anim_draw() both advances playback (based on real
+    elapsed wall-clock time since the last call) and draws the current
+    frame - one call per game-loop iteration, same rhythm as tick().
+    """
+
+    def __init__(self, sheet, frames, fps, loop=True):
+        import time
+
+        if not isinstance(sheet, _BoltSpriteSheet):
+            raise BoltRuntimeError("make_anim() expects a spritesheet from load_spritesheet()")
+        if not isinstance(frames, list) or not frames:
+            raise BoltRuntimeError("make_anim() expects a non-empty list of frame indices")
+        self.sheet = sheet
+        self.frames = [int(f) for f in frames]
+        self.fps = max(0.001, float(fps))
+        self.loop = bool(loop)
+        self.index = 0
+        self.finished = False
+        self.playing = True
+        self._last_time = time.perf_counter()
+        self._accum = 0.0
+
+
+def _make_anim(sheet, frames, fps, loop=True):
+    return _BoltAnim(sheet, frames, fps, loop)
+
+
+def _require_anim(anim, fn_name):
+    if not isinstance(anim, _BoltAnim):
+        raise BoltRuntimeError(f"{fn_name}() expects an animation handle from make_anim()")
+
+
+def _anim_reset(anim):
+    import time
+
+    _require_anim(anim, "anim_reset")
+    anim.index = 0
+    anim.finished = False
+    anim.playing = True
+    anim._accum = 0.0
+    anim._last_time = time.perf_counter()
+    return None
+
+
+def _anim_set_playing(anim, playing):
+    _require_anim(anim, "anim_set_playing")
+    anim.playing = bool(playing)
+    return None
+
+
+def _anim_advance(anim):
+    """Advances anim's frame counter by real elapsed time since the
+    last advance/draw call. Separated from anim_draw() so a script can
+    advance animation state without a window (e.g. headless tests)."""
+    import time
+
+    _require_anim(anim, "anim_advance")
+    now = time.perf_counter()
+    dt = now - anim._last_time
+    anim._last_time = now
+    if not anim.playing or anim.finished:
+        return None
+    anim._accum += dt
+    frame_time = 1.0 / anim.fps
+    while anim._accum >= frame_time:
+        anim._accum -= frame_time
+        anim.index += 1
+        if anim.index >= len(anim.frames):
+            if anim.loop:
+                anim.index = 0
+            else:
+                anim.index = len(anim.frames) - 1
+                anim.finished = True
+                anim.playing = False
+                break
+    return None
+
+
+def _anim_frame(anim):
+    _require_anim(anim, "anim_frame")
+    return anim.frames[anim.index]
+
+
+def _anim_finished(anim):
+    _require_anim(anim, "anim_finished")
+    return anim.finished
+
+
+def _anim_draw(win, anim, x, y):
+    _require_anim(anim, "anim_draw")
+    _anim_advance(anim)
+    return _draw_sprite(win, anim.sheet, _anim_frame(anim), x, y)
+
+
+_MCI_MISSING = "audio channels need winmm.dll (Windows multimedia), which is Windows-only"
+_mci_send_string = None
+_open_audio_channels: set = set()
+
+
+def _get_mci():
+    global _mci_send_string
+    if _mci_send_string is None:
+        import ctypes
+
+        try:
+            _mci_send_string = ctypes.windll.winmm.mciSendStringW
+        except (AttributeError, OSError):
+            raise BoltRuntimeError(_MCI_MISSING)
+    return _mci_send_string
+
+
+def _mci_alias(channel):
+    return f"bolt_channel_{_stringify(channel)}"
+
+
+def _play_channel(channel, path, loop=False):
+    """Plays a .wav file on a named channel via the Windows multimedia
+    (MCI) API - unlike play_sound()/winsound (which can only play one
+    sound system-wide, cutting off whatever was playing before), each
+    channel is its own MCI device instance, so multiple channels mix
+    together for real (e.g. play_channel("music", ...) plus
+    play_channel("sfx", ...) at the same time). Calling play_channel()
+    again on the same channel replaces whatever that channel was
+    playing.
+    """
+    mci = _get_mci()
+    alias = _mci_alias(channel)
+    if alias in _open_audio_channels:
+        mci(f"close {alias}", None, 0, None)
+        _open_audio_channels.discard(alias)
+    path = str(Path(path).resolve())
+    rc = mci(f'open "{path}" type waveaudio alias {alias}', None, 0, None)
+    if rc != 0:
+        raise BoltRuntimeError(f"play_channel(): couldn't open '{path}'")
+    _open_audio_channels.add(alias)
+    mci(f"play {alias}" + (" repeat" if loop else ""), None, 0, None)
+    return None
+
+
+def _stop_channel(channel):
+    mci = _get_mci()
+    alias = _mci_alias(channel)
+    if alias in _open_audio_channels:
+        mci(f"stop {alias}", None, 0, None)
+        mci(f"close {alias}", None, 0, None)
+        _open_audio_channels.discard(alias)
+    return None
+
+
+def _stop_all_channels():
+    mci = _get_mci()
+    for alias in list(_open_audio_channels):
+        mci(f"stop {alias}", None, 0, None)
+        mci(f"close {alias}", None, 0, None)
+    _open_audio_channels.clear()
+    return None
+
+
+def _channel_playing(channel):
+    mci = _get_mci()
+    alias = _mci_alias(channel)
+    if alias not in _open_audio_channels:
+        return False
+    buf = __import__("ctypes").create_unicode_buffer(64)
+    mci(f"status {alias} mode", buf, 64, None)
+    return buf.value.strip().lower() == "playing"
+
+
+def _apply_gravity(vy, gravity=980.0, dt=1.0 / 60.0):
+    """vy after gravity accelerates it for dt seconds. Defaults (980
+    px/s^2, 1/60s) suit a typical 60fps game loop with pixel units."""
+    return vy + float(gravity) * float(dt)
+
+
+def _apply_friction(v, friction=0.9):
+    """Exponential-style per-call damping: friction=1 means no
+    slowdown, 0 means an instant stop. Multiplicative (not subtractive)
+    so it stays stable regardless of frame rate drift."""
+    return v * float(friction)
+
+
+def _integrate(pos, vel, dt=1.0 / 60.0):
+    """pos advanced by vel over dt seconds - the one-line building
+    block every hand-rolled game loop already writes; here as a named
+    call so it reads the same way across scripts."""
+    return pos + vel * dt
+
+
+def _clamp(x, lo, hi):
+    if lo > hi:
+        lo, hi = hi, lo
+    return max(lo, min(hi, x))
+
+
+def _physics_step(x, y, vx, vy, ax, ay, dt=1.0 / 60.0):
+    """One step of semi-implicit (symplectic) Euler integration:
+    velocity is updated from acceleration first, then position is
+    updated using that *new* velocity. More stable than naive Euler for
+    games (e.g. a ball bouncing under gravity doesn't slowly gain
+    energy) while still being one small, inspectable function rather
+    than a physics engine. Returns [new_x, new_y, new_vx, new_vy].
+    """
+    dt = float(dt)
+    nvx = vx + float(ax) * dt
+    nvy = vy + float(ay) * dt
+    nx = x + nvx * dt
+    ny = y + nvy * dt
+    return [nx, ny, nvx, nvy]
+
+
 def _make_serve(call_fn):
     """serve(port, handler, max_requests=1): a real HTTP server.
 
@@ -821,4 +1102,23 @@ def make_builtins(call_fn=None) -> dict[str, object]:
         "beep": _beep,
         "play_sound": _play_sound,
         "stop_sound": _stop_sound,
+        "load_spritesheet": _load_spritesheet,
+        "sprite_frame_count": _sprite_frame_count,
+        "draw_sprite": _draw_sprite,
+        "make_anim": _make_anim,
+        "anim_advance": _anim_advance,
+        "anim_draw": _anim_draw,
+        "anim_frame": _anim_frame,
+        "anim_finished": _anim_finished,
+        "anim_reset": _anim_reset,
+        "anim_set_playing": _anim_set_playing,
+        "play_channel": _play_channel,
+        "stop_channel": _stop_channel,
+        "stop_all_channels": _stop_all_channels,
+        "channel_playing": _channel_playing,
+        "apply_gravity": _apply_gravity,
+        "apply_friction": _apply_friction,
+        "integrate": _integrate,
+        "clamp": _clamp,
+        "physics_step": _physics_step,
     }

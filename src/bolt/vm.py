@@ -13,11 +13,27 @@ class Cell:
 
 
 class Closure:
-    __slots__ = ("proto", "upvalues")
+    """A Bolt function value: its compiled prototype, its captured
+    upvalues, and - crucially - `globals`, a reference to the globals
+    dict of the VM/module it was *defined* in. Without that last part,
+    a closure created in one module (e.g. the main script) but called
+    from inside another module's own bytecode loop (e.g. an imported
+    package's function that received the closure as an argument, the
+    way packages/scenes.bo's run_stack() calls back into a scene's
+    update()/draw() closures) would resolve global-variable lookups
+    against the *calling* module's globals instead of its own - a
+    closure over the main script's `win` would raise "Undefined
+    variable 'win'" the moment an imported package invoked it, since
+    import() runs every module in its own isolated VM. Verified: this
+    was a real, reproducible bug (packages/scenes.bo + any global used
+    inside a scene closure), not a hypothetical one."""
 
-    def __init__(self, proto: FunctionProto, upvalues: list[Cell]):
+    __slots__ = ("proto", "upvalues", "globals")
+
+    def __init__(self, proto: FunctionProto, upvalues: list[Cell], globals_: dict):
         self.proto = proto
         self.upvalues = upvalues
+        self.globals = globals_
 
     def __repr__(self):
         return f"<func {self.proto.name or 'anonymous'}>"
@@ -30,7 +46,7 @@ class VM:
         self.globals.update(self._native)
 
     def run_program(self, script_proto: FunctionProto):
-        self._run(script_proto, [], [])
+        self._run(script_proto, [], [], self.globals)
 
     def call_closure(self, closure: Closure, args: list, line: int):
         if len(args) != closure.proto.arity:
@@ -39,9 +55,9 @@ class VM:
                 f"{closure.proto.arity} argument(s) but got {len(args)}",
                 line,
             )
-        return self._run(closure.proto, args, closure.upvalues)
+        return self._run(closure.proto, args, closure.upvalues, closure.globals)
 
-    def _run(self, proto: FunctionProto, args: list, upvalues: list[Cell]):
+    def _run(self, proto: FunctionProto, args: list, upvalues: list[Cell], globals_: dict):
         # A Bolt-to-Bolt call (the B.CALL branch below, when the callee is a
         # Closure) does NOT recurse into a nested Python call to _run - that
         # was the original design, and it meant every Bolt function call
@@ -61,6 +77,7 @@ class VM:
             (Cell(a) if boxed else a) for a, boxed in zip(args, proto.param_boxed)
         ]
         locals_.extend([None] * (proto.num_locals - len(args)))
+        globals_here = globals_
         code = proto.chunk.code
         constants = proto.chunk.constants
         stack: list = []
@@ -96,7 +113,7 @@ class VM:
                             f"{cproto.arity} argument(s) but got {argc}",
                             line,
                         )
-                    call_stack.append((code, constants, locals_, stack, push, pop, ip, upvalues))
+                    call_stack.append((code, constants, locals_, stack, push, pop, ip, upvalues, globals_here))
                     proto = cproto
                     locals_ = [
                         (Cell(a) if boxed else a) for a, boxed in zip(call_args, proto.param_boxed)
@@ -105,6 +122,7 @@ class VM:
                     code = proto.chunk.code
                     constants = proto.chunk.constants
                     upvalues = callee.upvalues
+                    globals_here = callee.globals
                     stack = []
                     push = stack.append
                     pop = stack.pop
@@ -196,7 +214,7 @@ class VM:
             elif op == B.RETURN:
                 result = stack.pop()
                 if call_stack:
-                    code, constants, locals_, stack, push, pop, ip, upvalues = call_stack.pop()
+                    code, constants, locals_, stack, push, pop, ip, upvalues, globals_here = call_stack.pop()
                     push(result)
                     continue
                 return result
@@ -204,11 +222,11 @@ class VM:
                 stack.pop()
             elif op == B.GET_GLOBAL:
                 try:
-                    push(self.globals[arg])
+                    push(globals_here[arg])
                 except KeyError:
                     raise BoltRuntimeError(f"Undefined variable '{arg}'", line)
             elif op == B.SET_GLOBAL:
-                g = self.globals
+                g = globals_here
                 if arg in g:
                     g[arg] = stack[-1]
                 else:
@@ -216,7 +234,7 @@ class VM:
             elif op == B.DEFINE_GLOBAL:
                 value = stack.pop()
                 if arg not in self._native:
-                    self.globals[arg] = value
+                    globals_here[arg] = value
             elif op == B.GET_UPVALUE:
                 stack.append(upvalues[arg].value)
             elif op == B.SET_UPVALUE:
@@ -344,6 +362,6 @@ class VM:
                         captured.append(locals_[index])
                     else:
                         captured.append(upvalues[index])
-                stack.append(Closure(proto, captured))
+                stack.append(Closure(proto, captured, globals_here))
             else:
                 raise BoltRuntimeError(f"Unknown opcode {op}", line)
