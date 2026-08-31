@@ -23,8 +23,11 @@ const cp = require('child_process');
 const BOLT_KB = require('./bolt-knowledge.js');
 
 const OPENROUTER_KEY_SECRET = 'bolt.openrouterKey';
-const OPENROUTER_MODEL_STATE = 'bolt.assistantModel';
+const OPENROUTER_MODEL_LIST_STATE = 'bolt.assistantModelList';
+const OPENROUTER_MODEL_LIST_FETCHED_STATE = 'bolt.assistantModelListFetchedAt';
+const OPENROUTER_MODEL_INDEX_STATE = 'bolt.assistantModelIndex';
 const OPENROUTER_API = 'https://openrouter.ai/api/v1';
+const MODEL_LIST_TTL_MS = 6 * 60 * 60 * 1000; // refresh the free-model ranking every 6h
 
 // ---- Local Bolt knowledge base retrieval ----
 // Keyword-overlap scoring over a bundled, static reference (bolt-knowledge.js).
@@ -79,7 +82,7 @@ function scoreModelForCoding(m) {
   return s;
 }
 
-async function pickBestFreeCodingModel(apiKey) {
+async function fetchRankedFreeModelIds(apiKey) {
   const res = await fetchJson(`${OPENROUTER_API}/models`, apiKey);
   const models = Array.isArray(res.data) ? res.data : [];
   const free = models.filter((m) => {
@@ -90,7 +93,7 @@ async function pickBestFreeCodingModel(apiKey) {
     throw new Error('No free models currently available on OpenRouter.');
   }
   free.sort((a, b) => scoreModelForCoding(b) - scoreModelForCoding(a));
-  return free[0];
+  return free.map((m) => m.id);
 }
 
 function escapeHtml(s) {
@@ -358,8 +361,9 @@ function activate(context) {
       });
       if (!key) return undefined;
       await context.secrets.store(OPENROUTER_KEY_SECRET, key);
-      // A new key may work with a different free lineup - re-pick the model.
-      await context.globalState.update(OPENROUTER_MODEL_STATE, undefined);
+      // A new key may work with a different free lineup - re-rank from scratch.
+      await context.globalState.update(OPENROUTER_MODEL_LIST_STATE, undefined);
+      await context.globalState.update(OPENROUTER_MODEL_INDEX_STATE, 0);
     }
     return key;
   }
@@ -367,6 +371,50 @@ function activate(context) {
   async function setOpenRouterKeyCommand() {
     const key = await ensureApiKey(true);
     if (key) vscode.window.showInformationMessage('Bolt Assistant: API key saved.');
+  }
+
+  // Returns the cached ranked free-model list, refetching if missing/stale.
+  async function getRankedModelList(apiKey) {
+    const cached = context.globalState.get(OPENROUTER_MODEL_LIST_STATE);
+    const fetchedAt = context.globalState.get(OPENROUTER_MODEL_LIST_FETCHED_STATE, 0);
+    if (Array.isArray(cached) && cached.length > 0 && Date.now() - fetchedAt < MODEL_LIST_TTL_MS) {
+      return cached;
+    }
+    const list = await fetchRankedFreeModelIds(apiKey);
+    await context.globalState.update(OPENROUTER_MODEL_LIST_STATE, list);
+    await context.globalState.update(OPENROUTER_MODEL_LIST_FETCHED_STATE, Date.now());
+    return list;
+  }
+
+  // Calls chat/completions with the current best-ranked free model; on any
+  // failure (rate limit, model temporarily down, etc.) it silently tries
+  // the next free model down the ranking, in the background, and - if that
+  // one works - remembers the advance so future calls start there instead
+  // of re-hitting the dead one. Only surfaces an error once every free
+  // model in the list has actually failed.
+  async function chatWithFallback(apiKey, messages) {
+    const list = await getRankedModelList(apiKey);
+    let index = context.globalState.get(OPENROUTER_MODEL_INDEX_STATE, 0);
+    if (index >= list.length) index = 0;
+
+    let lastErr;
+    for (let attempt = 0; attempt < list.length; attempt++) {
+      const i = (index + attempt) % list.length;
+      const model = list[i];
+      try {
+        const resp = await fetchJson(`${OPENROUTER_API}/chat/completions`, apiKey, { model, messages });
+        if (attempt > 0) {
+          // This model worked where the previous one didn't - stick with
+          // it next time instead of retrying the failing one again.
+          await context.globalState.update(OPENROUTER_MODEL_INDEX_STATE, i);
+        }
+        return { model, resp };
+      } catch (e) {
+        lastErr = e;
+        continue;
+      }
+    }
+    throw lastErr || new Error('All free models failed.');
   }
 
   function assistantHtml() {
@@ -475,18 +523,6 @@ function activate(context) {
     const apiKey = await ensureApiKey(false);
     if (!apiKey) return { error: 'No API key set.' };
 
-    let model = context.globalState.get(OPENROUTER_MODEL_STATE);
-    if (!model) {
-      try {
-        const best = await pickBestFreeCodingModel(apiKey);
-        model = best.id;
-        await context.globalState.update(OPENROUTER_MODEL_STATE, model);
-      } catch (e) {
-        return { error: 'Could not pick a model: ' + e.message };
-      }
-    }
-    if (assistantPanel) assistantPanel.webview.postMessage({ type: 'modelName', model });
-
     const kbChunks = searchKB(question);
     const editRequested = EDIT_INTENT_RE.test(question) && !!targetUri;
     const systemPrompt =
@@ -501,7 +537,8 @@ function activate(context) {
     const messages = [{ role: 'system', content: systemPrompt }, ...assistantHistory, { role: 'user', content: question }];
 
     try {
-      const resp = await fetchJson(`${OPENROUTER_API}/chat/completions`, apiKey, { model, messages });
+      const { model, resp } = await chatWithFallback(apiKey, messages);
+      if (assistantPanel) assistantPanel.webview.postMessage({ type: 'modelName', model });
       const reply = resp.choices && resp.choices[0] && resp.choices[0].message && resp.choices[0].message.content;
       if (!reply) return { error: 'Empty response from model.' };
       assistantHistory.push({ role: 'user', content: question });
@@ -545,8 +582,11 @@ function activate(context) {
     assistantPanel.webview.html = assistantHtml();
     assistantPanel.onDidDispose(() => { assistantPanel = undefined; });
 
-    const cachedModel = context.globalState.get(OPENROUTER_MODEL_STATE);
-    if (cachedModel) assistantPanel.webview.postMessage({ type: 'modelName', model: cachedModel });
+    const cachedList = context.globalState.get(OPENROUTER_MODEL_LIST_STATE);
+    const cachedIndex = context.globalState.get(OPENROUTER_MODEL_INDEX_STATE, 0);
+    if (Array.isArray(cachedList) && cachedList[cachedIndex]) {
+      assistantPanel.webview.postMessage({ type: 'modelName', model: cachedList[cachedIndex] });
+    }
 
     assistantPanel.webview.onDidReceiveMessage(async (msg) => {
       if (msg.type === 'changeKey') {
