@@ -1,0 +1,54 @@
+# scenes: a tiny scene/state stack for games, so a menu -> playing ->
+# game-over game doesn't need one giant while-loop with manual mode
+# flags. A "scene" is just two closures - update() and draw(win) -
+# pushed together; whatever state they need, they capture themselves.
+# Built as plain Bolt (like mathutils/stringutils/stats), not a new
+# builtin, since maps + closures already cover it.
+
+func make_stack() {
+    return {"scenes": []}
+}
+
+func push_scene(stack, update_fn, draw_fn) {
+    push(stack["scenes"], {"update": update_fn, "draw": draw_fn})
+    return nil
+}
+
+func pop_scene(stack) {
+    return pop(stack["scenes"])
+}
+
+func replace_scene(stack, update_fn, draw_fn) {
+    if len(stack["scenes"]) > 0 {
+        pop(stack["scenes"])
+    }
+    push_scene(stack, update_fn, draw_fn)
+    return nil
+}
+
+func current_scene(stack) {
+    let scenes = stack["scenes"]
+    let n = len(scenes)
+    if n == 0 {
+        return nil
+    }
+    return scenes[n - 1]
+}
+
+func stack_empty(stack) {
+    return len(stack["scenes"]) == 0
+}
+
+# Call once per game-loop iteration: runs the top scene's update(),
+# then its draw(win). Only the top scene runs - a paused scene
+# underneath keeps its state (captured in its closures) but doesn't
+# tick, which is exactly what "pause menu over the game" needs.
+func run_stack(stack, win) {
+    let scene = current_scene(stack)
+    if scene == nil {
+        return nil
+    }
+    scene["update"]()
+    scene["draw"](win)
+    return nil
+}

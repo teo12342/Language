@@ -2,6 +2,74 @@
 
 All notable changes to Bolt, by version.
 
+## v0.18.0
+
+Real game-dev additions, each verified rather than just wired up:
+
+- **Sprite animation**: `load_spritesheet(path, frame_w, frame_h)`
+  grid-slices a source image into frames (cropped lazily via Tk's
+  `photo copy -from`, cached per frame); `make_anim(sheet, frames, fps,
+  loop)` plus `anim_draw(win, anim, x, y)` play it back, advancing by
+  real elapsed wall-clock time each call - the same one-call-per-frame
+  rhythm as `tick()`. `draw_sprite()`/`anim_advance()`/`anim_frame()`/
+  `anim_finished()`/`anim_reset()`/`anim_set_playing()` expose the
+  pieces individually for scripts that want more control. Verified
+  with a synthetic 4-frame test sheet: cropped pixel colors matched
+  exactly, and a timed playback test confirmed frame-advance timing,
+  looping wrap-around, and non-loop finish-and-hold all behave
+  correctly.
+- **Audio mixing**: `play_channel(name, path, loop)` /
+  `stop_channel(name)` / `stop_all_channels()` / `channel_playing(name)`
+  play `.wav` files via the Windows multimedia (MCI) API, each named
+  channel its own device instance - unlike `play_sound()`/`winsound`
+  (still available, unchanged), which can only play one sound
+  system-wide and cuts off whatever was already playing. Verified for
+  real: two channels (two different generated tones) played
+  simultaneously and both reported "playing" at once, not one
+  interrupting the other.
+- **Basic 2D physics**: `apply_gravity(v, gravity, dt)`,
+  `apply_friction(v, friction)`, `integrate(pos, vel, dt)`,
+  `clamp(x, lo, hi)`, and `physics_step(x, y, vx, vy, ax, ay, dt)`
+  (semi-implicit/symplectic Euler - velocity updates from acceleration
+  first, then position uses the *new* velocity, which is more stable
+  under gravity than naive Euler). Small, inspectable building blocks,
+  not a physics engine. Covered by real headless tests (no window
+  needed) checking the actual numbers, not just that the calls don't
+  crash.
+- **Scene/state management**: `packages/scenes.bo`, a small stack-based
+  scene manager (`make_stack`, `push_scene`, `pop_scene`,
+  `replace_scene`, `current_scene`, `run_stack`) built in Bolt itself
+  (like `mathutils.bo`/`stringutils.bo`/`stats.bo`), not a new
+  builtin - a scene is just two closures (`update`, `draw`) pushed
+  together, so menu -> playing -> game-over no longer needs one giant
+  while-loop with manual mode flags.
+- **Real bug found and fixed along the way**: writing `scenes.bo`
+  surfaced a genuine cross-module closure bug in the bytecode VM - a
+  closure defined in the main script (capturing a global like a
+  `window()` handle) would raise `Undefined variable 'win'` the
+  moment an *imported* package called it back (e.g. `run_stack()`
+  calling a scene's `update()`), because `import()` runs each module
+  in its own isolated VM instance, and global-variable opcodes were
+  resolving against whichever VM instance happened to be executing,
+  not the VM/module the closure was actually defined in. Fixed by
+  having every `Closure` carry a reference to its defining module's
+  globals dict, and threading that reference through the VM's call
+  frames the same way locals/upvalues already are. All 114 existing
+  tests still pass; 6 new tests cover the physics helpers, and the
+  fix itself was verified against a minimal reproduction before and
+  after. Known limitation, not fixed this round: the tree-walking
+  reference engine (`--engine tree`) has the same class of bug for
+  cross-module closures - it isn't the default engine, but scripts
+  using `packages/scenes.bo` should stick to the default VM engine
+  for now.
+- `examples/platformer_demo.bo`: a real example using all four
+  together (animated sprite, gravity/jump physics, a looping music
+  channel plus a jump sound effect mixed on top of it, and a menu ->
+  playing scene stack) - parses, compiles, and runs cleanly. (Fixed a
+  real bug in the example itself while verifying it: the menu scene
+  originally popped itself without pushing the play scene back, so
+  the game would never actually start - now uses `replace_scene()`.)
+
 ## Unreleased
 
 Bolt Studio's release build switched from a zip of the portable

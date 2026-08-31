@@ -1,0 +1,90 @@
+# A small real platformer demonstrating everything added for game dev
+# this round: sprite animation (load_spritesheet/make_anim/anim_draw),
+# physics (apply_gravity/physics_step/clamp), audio mixing
+# (play_channel - background music and jump sfx playing at once, not
+# cutting each other off), and scene management (packages/scenes.bo -
+# a menu screen you press space to leave, then the platformer itself).
+#
+# Controls: left/right to move, space to jump (and to leave the menu),
+# escape to quit.
+
+let scenes = import("packages/scenes.bo")
+let win = window(480, 320, "Bolt Platformer Demo")
+
+let sheet = load_spritesheet("examples/run_sheet.png", 16, 16)
+let run_anim = make_anim(sheet, [0, 1, 2, 3], 8, true)
+
+let x = 40
+let y = 200
+let vx = 0
+let vy = 0
+let on_ground = false
+let jump_was_down = false
+
+let GROUND_Y = 260
+let GRAVITY = 1400
+let MOVE_SPEED = 140
+let JUMP_SPEED = 480
+
+let stack = scenes.make_stack()
+
+func menu_update() {
+    if key(win, "space") {
+        scenes.replace_scene(stack, play_update, play_draw)
+        play_channel("music", "examples/bg_music.wav", true)  # loops, own channel
+    }
+}
+
+func menu_draw(w) {
+    clear(w, "#171410")
+    draw_text(w, 140, 130, "BOLT PLATFORMER", "#e2895f")
+    draw_text(w, 130, 160, "press SPACE to start", "#a89d86")
+}
+
+func play_update() {
+    let dt = 1.0 / 60.0
+
+    vx = 0
+    if key(win, "left") { vx = 0 - MOVE_SPEED }
+    if key(win, "right") { vx = MOVE_SPEED }
+
+    let jump_down = key(win, "space")
+    if jump_down and (not jump_was_down) and on_ground {
+        vy = 0 - JUMP_SPEED
+        on_ground = false
+        play_channel("sfx", "examples/jump.wav")  # mixes with the looping "music" channel
+    }
+    jump_was_down = jump_down
+
+    vy = apply_gravity(vy, GRAVITY, dt)
+
+    x = integrate(x, vx, dt)
+    y = integrate(y, vy, dt)
+
+    x = clamp(x, 0, 440)
+    if y >= GROUND_Y {
+        y = GROUND_Y
+        vy = 0
+        on_ground = true
+    }
+
+    if key(win, "escape") {
+        close_window(win)
+    }
+}
+
+func play_draw(w) {
+    clear(w, "#171410")
+    line(w, 0, GROUND_Y + 40, 480, GROUND_Y + 40, "#3a3327", 2)
+    anim_draw(w, run_anim, x, y)
+    draw_text(w, 10, 10, "arrows to move, space to jump", "#a89d86")
+}
+
+scenes.push_scene(stack, menu_update, menu_draw)
+
+while tick(win, 60) {
+    scenes.run_stack(stack, win)
+}
+
+stop_all_channels()
+print("done")
