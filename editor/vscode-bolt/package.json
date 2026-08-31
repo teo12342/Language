@@ -2,14 +2,14 @@
   "name": "bolt-lang",
   "displayName": "Bolt Language",
   "description": "Syntax highlighting, language configuration, a Bolt-branded color theme, a built-in app previewer, and an AI assistant for the Bolt programming language (.bo files) and beyond.",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "publisher": "bolt-lang",
   "engines": {
     "vscode": "^1.75.0"
   },
   "categories": ["Programming Languages", "Themes"],
   "main": "./extension.js",
-  "activationEvents": [],
+  "activationEvents": ["onStartupFinished"],
   "contributes": {
     "languages": [
       {
