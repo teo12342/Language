@@ -271,10 +271,13 @@ function activate(context) {
       return;
     }
 
-    killChild();
-    output.clear();
-    openConsole('Preview: ' + path.basename(file));
-
+    // Resolve cmd/args - and validate anything that can fail (like Bolt
+    // needing cli.py in the workspace root) - BEFORE opening the console
+    // panel. Opening the console first and validating after was a real
+    // bug: on the cli.py-missing path this function returned early with
+    // only a warning toast (easy to miss/dismiss), while the console
+    // panel - already open - sat stuck on "Running..." forever, since
+    // nothing ever posted a 'done' message to it.
     let cmd, args;
     if (langId === 'bolt') {
       const cliPath = path.join(cwd, 'cli.py');
@@ -295,6 +298,10 @@ function activate(context) {
       cmd = 'npx';
       args = ['--yes', 'ts-node', file];
     }
+
+    killChild();
+    output.clear();
+    openConsole('Preview: ' + path.basename(file));
 
     output.appendLine(`$ ${cmd} ${args.join(' ')}\n`);
     child = cp.spawn(cmd, args, { cwd, shell: process.platform === 'win32' });
@@ -331,7 +338,12 @@ function activate(context) {
     });
     child.on('error', (err) => {
       output.appendLine(`\n[failed to start "${cmd}": ${err.message}]`);
-      if (panel) panel.webview.postMessage({ type: 'append', text: `\n[failed to start "${cmd}": ${err.message}]` });
+      if (panel) {
+        panel.webview.postMessage({ type: 'append', text: `\n[failed to start "${cmd}": ${err.message}]` });
+        // Without this the header stays stuck on "Running..." forever -
+        // 'close' never fires for a process that never started.
+        if (!opened) panel.webview.postMessage({ type: 'done', ok: false, code: -1 });
+      }
     });
   }
 
