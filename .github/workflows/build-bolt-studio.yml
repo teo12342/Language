@@ -123,16 +123,18 @@ jobs:
         shell: cmd
         run: '"C:\Program Files (x86)\Inno Setup 6\ISCC.exe" vscodium-src\bolt-studio.iss'
 
-      - name: Locate the installer exe
+      - name: Verify the installer exe exists
+        # Inno Setup's OutputDir=".." (relative to bolt-studio.iss, inside
+        # vscodium-src/) already lands the exe right here at the workspace
+        # root under the exact name we want - nothing left to move/rename.
         run: |
           set -ex
-          SETUP_EXE=$(find . -maxdepth 2 -iname "BoltStudio-Setup-win32-x64.exe" | head -n1)
-          if [ -z "$SETUP_EXE" ]; then
+          if [ ! -f "BoltStudio-Setup-win32-x64.exe" ]; then
             echo "::error::Inno Setup did not produce BoltStudio-Setup-win32-x64.exe - check the 'Compile the installer' step's output."
             find . -maxdepth 2 -iname "*.exe"
             exit 1
           fi
-          cp "$SETUP_EXE" BoltStudio-Setup-win32-x64.exe
+          ls -la BoltStudio-Setup-win32-x64.exe
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
