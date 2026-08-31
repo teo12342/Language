@@ -1,0 +1,1128 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bolt Language</title>
+</head>
+<body>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
+<style>
+:root {
+  --ink: #1b1712;
+  --paper: #f6f1e7;
+  --paper-raised: #efe7d6;
+  --line: #ddd0b3;
+  --muted: #6f6656;
+  --bolt: #b5502e;
+  --bolt-bright: #d9663c;
+  --python: #2f6f6b;
+  --js: #a3841f;
+  --c: #3f5f8a;
+  --cpp: #7a4f9e;
+  --good: #3d7a4a;
+  --star-on: #c8932f;
+  --star-off: #ddd0b3;
+  --shadow: 0 12px 32px -12px rgba(27,23,18,0.28);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ink: #ece5d6;
+    --paper: #171410;
+    --paper-raised: #211d17;
+    --line: #3a3327;
+    --muted: #a89d86;
+    --bolt: #e2895f;
+    --bolt-bright: #f0a578;
+    --python: #6fc1ba;
+    --js: #d9bb5a;
+    --c: #86a9d9;
+    --cpp: #c19be0;
+    --good: #7bc98c;
+    --star-on: #e0b355;
+    --star-off: #3a3327;
+    --shadow: 0 12px 32px -12px rgba(0,0,0,0.55);
+  }
+}
+:root[data-theme="dark"] {
+  --ink: #ece5d6;
+  --paper: #171410;
+  --paper-raised: #211d17;
+  --line: #3a3327;
+  --muted: #a89d86;
+  --bolt: #e2895f;
+  --bolt-bright: #f0a578;
+  --python: #6fc1ba;
+  --js: #d9bb5a;
+  --c: #86a9d9;
+  --cpp: #c19be0;
+  --good: #7bc98c;
+  --star-on: #e0b355;
+  --star-off: #3a3327;
+  --shadow: 0 12px 32px -12px rgba(0,0,0,0.55);
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: "IBM Plex Sans", -apple-system, "Segoe UI", sans-serif;
+  line-height: 1.55;
+}
+code, .mono { font-family: "IBM Plex Mono", ui-monospace, monospace; }
+code.inline-c {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  background: var(--paper-raised); border: 1px solid var(--line); border-radius: 4px;
+  padding: 1px 5px; font-size: 0.92em; color: var(--bolt);
+}
+
+/* ===== top nav ===== */
+.topnav {
+  position: sticky; top: 0; z-index: 50;
+  display: flex; align-items: center; gap: 28px;
+  padding: 14px 32px;
+  background: var(--paper);
+  border-bottom: 1px solid var(--line);
+}
+.brand { display: flex; align-items: center; gap: 9px; font-family: "IBM Plex Mono", monospace; font-weight: 700; font-size: 16px; color: var(--ink); text-decoration: none; margin-right: 8px; }
+.brand .bolt-mark { color: var(--bolt); font-size: 19px; }
+.tabs { display: flex; gap: 4px; flex: 1; overflow-x: auto; }
+.tab-btn {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 13px; font-weight: 500;
+  background: none; border: none; cursor: pointer;
+  color: var(--muted); padding: 8px 14px; border-radius: 7px;
+  white-space: nowrap;
+  transition: color .15s, background .15s;
+}
+.tab-btn:hover { color: var(--ink); background: var(--paper-raised); }
+.tab-btn.active { color: var(--paper); background: var(--bolt); }
+.tab-btn.soon { cursor: default; opacity: 0.45; }
+.tab-btn.soon:hover { background: none; color: var(--muted); }
+.tab-btn .soon-tag {
+  font-size: 8.5px; text-transform: uppercase; letter-spacing: 0.06em;
+  border: 1px solid currentColor; border-radius: 100px; padding: 1px 5px; margin-left: 6px;
+}
+.nav-cta {
+  font-family: "IBM Plex Mono", monospace; font-size: 12.5px; font-weight: 600;
+  background: var(--ink); color: var(--paper);
+  padding: 8px 16px; border-radius: 7px; text-decoration: none; white-space: nowrap;
+}
+:root:not([data-theme="light"]) .nav-cta { background: var(--bolt); color: var(--paper); }
+:root[data-theme="dark"] .nav-cta { background: var(--bolt); color: var(--paper); }
+
+.panel { display: none; }
+.panel.active { display: block; }
+
+/* ===== hero ===== */
+.hero {
+  max-width: 1120px; margin: 0 auto;
+  padding: 84px 32px 60px;
+  display: grid; grid-template-columns: 1.05fr 0.95fr; gap: 56px; align-items: center;
+}
+@media (max-width: 860px) { .hero { grid-template-columns: 1fr; padding-top: 52px; } }
+.eyebrow {
+  font-family: "IBM Plex Mono", monospace; font-size: 12px; letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--bolt); margin: 0 0 16px; font-weight: 600;
+}
+.hero h1 {
+  font-family: "IBM Plex Mono", monospace; font-weight: 700;
+  font-size: clamp(34px, 5vw, 54px); line-height: 1.05;
+  margin: 0 0 20px; text-wrap: balance; letter-spacing: -0.015em;
+}
+.hero h1 .accent { color: var(--bolt); }
+.hero-dek { font-size: 17px; color: var(--muted); max-width: 46ch; margin: 0 0 30px; }
+.hero-ctas { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 28px; }
+.btn {
+  font-family: "IBM Plex Mono", monospace; font-size: 14px; font-weight: 600;
+  padding: 12px 22px; border-radius: 9px; text-decoration: none; display: inline-flex;
+  align-items: center; gap: 9px; transition: transform .12s, box-shadow .12s;
+}
+.btn:hover { transform: translateY(-1px); }
+.btn-primary { background: var(--bolt); color: var(--paper); box-shadow: var(--shadow); }
+.btn-secondary { background: var(--paper-raised); color: var(--ink); border: 1px solid var(--line); }
+.hero-meta { display: flex; gap: 18px; flex-wrap: wrap; font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--muted); }
+.hero-meta span { display: flex; align-items: center; gap: 6px; }
+.dot-live { width: 7px; height: 7px; border-radius: 50%; background: var(--good); display: inline-block; }
+
+.code-window {
+  border: 1px solid var(--line); border-radius: 14px; overflow: hidden;
+  background: var(--paper-raised); box-shadow: var(--shadow);
+}
+.code-window-head {
+  display: flex; align-items: center; gap: 7px; padding: 11px 15px;
+  border-bottom: 1px solid var(--line);
+}
+.code-window-head .cdot { width: 10px; height: 10px; border-radius: 50%; background: var(--line); }
+.code-window-head .fname { margin-left: 10px; font-family: "IBM Plex Mono", monospace; font-size: 11.5px; color: var(--muted); }
+.code-window pre { margin: 0; padding: 22px; font-family: "IBM Plex Mono", monospace; font-size: 13.5px; line-height: 1.75; overflow-x: auto; min-height: 210px; }
+.code-window code { white-space: pre; }
+.kw { color: var(--bolt); } .str { color: var(--good); } .num { color: var(--c); } .com { color: var(--muted); font-style: italic; } .fn { color: var(--ink); font-weight: 600; }
+.typecaret { display: inline-block; width: 8px; height: 15px; background: var(--bolt); vertical-align: text-bottom; animation: blink 1s step-end infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .typecaret { animation: none; } }
+
+/* ===== shared section chrome ===== */
+.section { max-width: 1120px; margin: 0 auto; padding: 20px 32px 90px; }
+.section h2 {
+  font-family: "IBM Plex Mono", monospace; font-size: 13px; text-transform: uppercase;
+  letter-spacing: 0.09em; color: var(--muted); margin: 0 0 8px;
+  display: flex; align-items: center; gap: 10px;
+}
+.section h2::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+.section-note { font-size: 14px; color: var(--muted); max-width: 68ch; margin: 0 0 28px; }
+.block { margin-bottom: 56px; }
+
+/* ===== overview: feature grid ===== */
+.feature-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
+.feature {
+  border: 1px solid var(--line); border-radius: 12px; background: var(--paper-raised);
+  padding: 20px 22px;
+}
+.feature .ficon { font-family: "IBM Plex Mono", monospace; color: var(--bolt); font-size: 20px; margin-bottom: 10px; }
+.feature h3 { margin: 0 0 6px; font-size: 15px; font-weight: 600; }
+.feature p { margin: 0; font-size: 13px; color: var(--muted); }
+
+.version-badge {
+  font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--muted);
+  border: 1px solid var(--line); border-radius: 100px; padding: 4px 12px; display: inline-block;
+}
+
+/* ===== comparisons tab ===== */
+.verdict-strip {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 1px;
+  background: var(--line); border: 1px solid var(--line); border-radius: 10px; overflow: hidden;
+  margin-bottom: 36px;
+}
+.verdict { background: var(--paper-raised); padding: 16px 17px; }
+.verdict .vlabel { font-family: "IBM Plex Mono", monospace; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin-bottom: 8px; }
+.verdict .vvalue { font-family: "IBM Plex Mono", monospace; font-size: 18px; font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums; }
+.verdict .vvalue.win { color: var(--ink); }
+.verdict.c .vvalue.win { color: var(--c); } .verdict.cpp .vvalue.win { color: var(--cpp); } .verdict.bolt .vvalue.win { color: var(--bolt); }
+
+.rating-grid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); margin-bottom: 40px; }
+.rating-card { border: 1px solid var(--line); border-radius: 10px; background: var(--paper-raised); padding: 15px 18px; }
+.rating-title { font-weight: 600; font-size: 14.5px; margin-bottom: 3px; }
+.rating-why { font-size: 12px; color: var(--muted); margin-bottom: 10px; }
+.rating-row { display: flex; align-items: center; gap: 10px; }
+.rating-row + .rating-row { margin-top: 4px; }
+.rating-row.winner { background: var(--paper); border-radius: 6px; padding: 3px 8px; margin: 0 -8px; box-shadow: inset 3px 0 0 var(--star-on); }
+.winner-badge { font-family: "IBM Plex Mono", monospace; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--star-on); border: 1px solid var(--star-on); border-radius: 100px; padding: 1px 7px; white-space: nowrap; }
+.rating-who { font-family: "IBM Plex Mono", monospace; font-size: 11.5px; font-weight: 600; width: 74px; flex-shrink: 0; }
+.rating-row.python .rating-who { color: var(--python); } .rating-row.bolt .rating-who { color: var(--bolt); } .rating-row.js .rating-who { color: var(--js); } .rating-row.c .rating-who { color: var(--c); } .rating-row.cpp .rating-who { color: var(--cpp); }
+.stars { color: var(--star-on); font-size: 13px; letter-spacing: 1px; }
+.rating-score { font-family: "IBM Plex Mono", monospace; font-size: 11px; color: var(--muted); margin-left: auto; font-variant-numeric: tabular-nums; }
+
+.full-report-cta {
+  border: 1px solid var(--line); border-left: 3px solid var(--bolt); border-radius: 8px;
+  background: var(--paper-raised); padding: 16px 20px; font-size: 13.5px; color: var(--muted);
+  display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+}
+.full-report-cta a { color: var(--bolt); font-weight: 600; text-decoration: none; }
+
+.chart { display: flex; flex-direction: column; gap: 12px; margin-bottom: 40px; }
+.bar-row .bar-label { display: flex; justify-content: space-between; font-family: "IBM Plex Mono", monospace; font-size: 12px; margin-bottom: 5px; }
+.bar-row .bar-label .time { font-variant-numeric: tabular-nums; color: var(--muted); }
+.bar-track { position: relative; height: 22px; border-radius: 6px; background: var(--paper-raised); border: 1px solid var(--line); overflow: hidden; }
+.bar-fill { height: 100%; border-radius: 5px 0 0 5px; }
+.bar-fill.bolt { background: var(--bolt); } .bar-fill.python { background: var(--python); } .bar-fill.js { background: var(--js); } .bar-fill.c { background: var(--c); } .bar-fill.cpp { background: var(--cpp); }
+.bar-value {
+  position: absolute; top: 50%; left: 6px; transform: translateY(-50%);
+  font-family: "IBM Plex Mono", monospace; font-size: 10.5px; font-weight: 600;
+  color: var(--ink); pointer-events: none; white-space: nowrap;
+  background: var(--paper-raised); border: 1px solid var(--line);
+  padding: 1px 7px; border-radius: 4px;
+}
+
+.version-timeline { display: grid; gap: 0; border-left: 2px solid var(--line); margin-left: 6px; }
+.version-item { position: relative; padding: 0 0 18px 22px; }
+.version-item:last-child { padding-bottom: 0; }
+.version-item::before {
+  content: ""; position: absolute; left: -6.5px; top: 3px;
+  width: 11px; height: 11px; border-radius: 50%;
+  background: var(--paper); border: 2px solid var(--bolt);
+}
+.version-item.current::before { background: var(--bolt); }
+.version-tl-badge { font-family: "IBM Plex Mono", monospace; font-weight: 600; font-size: 13px; color: var(--bolt); display: inline-block; margin-bottom: 3px; }
+.version-item .version-desc { font-size: 13px; color: var(--muted); }
+.version-item .version-desc strong { color: var(--ink); font-weight: 600; }
+
+.source-note {
+  background: var(--paper-raised); border: 1px solid var(--line); border-left: 3px solid var(--bolt);
+  border-radius: 8px; padding: 14px 18px; margin-bottom: 24px; font-size: 13.5px; color: var(--muted);
+}
+.source-note strong { color: var(--ink); }
+.source-panel { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--paper-raised); margin-bottom: 40px; }
+.source-panel-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 15px; border-bottom: 1px solid var(--line);
+  font-family: "IBM Plex Mono", monospace; font-size: 12px;
+}
+.source-panel-head .name { color: var(--bolt); font-weight: 600; }
+.source-panel-head .cmd { color: var(--muted); }
+.source-panel pre {
+  margin: 0; padding: 16px; overflow-x: auto;
+  font-family: "IBM Plex Mono", monospace; font-size: 11.5px; line-height: 1.65;
+  max-height: 480px; overflow-y: auto;
+}
+
+/* ===== courses tab ===== */
+.lesson-num {
+  width: 30px; height: 30px; border-radius: 50%; background: var(--bolt);
+  color: var(--paper); display: inline-flex; align-items: center; justify-content: center;
+  font-family: "IBM Plex Mono", monospace; font-weight: 700; font-size: 12.5px;
+  flex-shrink: 0; margin-right: 12px; vertical-align: middle;
+}
+.lesson {
+  border: 1px solid var(--line); border-radius: 12px; background: var(--paper-raised);
+  padding: 20px 22px; margin-bottom: 18px;
+}
+.lesson-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 6px; }
+.lesson-head h3 { margin: 0; font-size: 17px; font-weight: 600; }
+.lesson-tag { font-family: "IBM Plex Mono", monospace; font-size: 10.5px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.lesson p.lesson-dek { margin: 0 0 14px; font-size: 13.5px; color: var(--muted); max-width: 68ch; }
+.lesson .code-window { box-shadow: none; }
+.lesson-note { font-size: 12.5px; color: var(--muted); margin-top: 10px; }
+.lesson-note strong { color: var(--ink); }
+
+.editor-course { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); margin-bottom: 40px; }
+.editor-step { border: 1px solid var(--line); border-radius: 10px; padding: 18px 20px; background: var(--paper-raised); }
+.editor-step .estepnum { font-family: "IBM Plex Mono", monospace; color: var(--bolt); font-weight: 700; font-size: 12px; margin-bottom: 8px; }
+.editor-step h4 { margin: 0 0 5px; font-size: 14.5px; }
+.editor-step p { margin: 0; font-size: 12.5px; color: var(--muted); }
+
+/* ===== course shelf (book covers) ===== */
+.shelf { display: grid; gap: 20px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); margin-bottom: 20px; }
+.book-cover {
+  border: 1px solid var(--line); border-radius: 14px; background: var(--paper-raised);
+  padding: 28px 26px; box-shadow: var(--shadow); display: flex; flex-direction: column;
+}
+.book-cover .blevel {
+  font-family: "IBM Plex Mono", monospace; font-size: 10.5px; text-transform: uppercase;
+  letter-spacing: 0.08em; color: var(--bolt); font-weight: 700; margin-bottom: 10px;
+}
+.book-cover h3 { margin: 0 0 8px; font-size: 22px; font-family: "IBM Plex Mono", monospace; letter-spacing: -0.01em; }
+.book-cover p { margin: 0 0 20px; font-size: 13.5px; color: var(--muted); flex: 1; }
+.book-cover .bmeta { display: flex; gap: 14px; font-family: "IBM Plex Mono", monospace; font-size: 11px; color: var(--muted); margin-bottom: 18px; flex-wrap: wrap; }
+.book-open-btn {
+  font-family: "IBM Plex Mono", monospace; font-weight: 700; font-size: 13.5px;
+  background: var(--bolt); color: var(--paper); padding: 11px 20px; border-radius: 8px;
+  text-decoration: none; display: inline-flex; align-items: center; gap: 8px; align-self: flex-start;
+}
+
+/* ===== book reader ===== */
+.book-reader { display: grid; grid-template-columns: 230px 1fr; gap: 40px; align-items: start; }
+@media (max-width: 780px) { .book-reader { grid-template-columns: 1fr; } }
+.book-back {
+  font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--muted);
+  background: none; border: none; cursor: pointer; padding: 0; margin-bottom: 18px;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.book-back:hover { color: var(--bolt); }
+.book-toc {
+  position: sticky; top: 76px; border: 1px solid var(--line); border-radius: 10px;
+  background: var(--paper-raised); padding: 16px; max-height: calc(100vh - 100px); overflow-y: auto;
+}
+.book-toc-title { font-family: "IBM Plex Mono", monospace; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin-bottom: 10px; }
+.book-toc a {
+  display: block; font-size: 12.5px; color: var(--muted); text-decoration: none;
+  padding: 5px 8px; border-radius: 6px; margin-bottom: 1px;
+}
+.book-toc a:hover { color: var(--ink); background: var(--paper); }
+.chapter { margin-bottom: 50px; scroll-margin-top: 76px; }
+.chapter .cnum { font-family: "IBM Plex Mono", monospace; color: var(--bolt); font-size: 12px; font-weight: 700; margin-bottom: 4px; }
+.chapter h3 { margin: 0 0 12px; font-size: 21px; }
+.chapter p { font-size: 14px; color: var(--ink); max-width: 68ch; margin: 0 0 14px; }
+.chapter p.muted-p { color: var(--muted); }
+.chapter .code-window { margin: 14px 0; box-shadow: none; }
+
+/* ===== download tab ===== */
+.download-card {
+  border: 1px solid var(--line); border-radius: 16px; background: var(--paper-raised);
+  padding: 40px; box-shadow: var(--shadow); text-align: center; margin-bottom: 36px;
+}
+.download-card .os-icon { font-family: "IBM Plex Mono", monospace; font-size: 13px; color: var(--muted); margin-bottom: 14px; letter-spacing: 0.05em; text-transform: uppercase; }
+.download-card h3 { font-size: 26px; margin: 0 0 8px; }
+.download-card p { color: var(--muted); font-size: 14px; margin: 0 0 24px; }
+.download-btn {
+  font-family: "IBM Plex Mono", monospace; font-weight: 700; font-size: 15px;
+  background: var(--bolt); color: var(--paper); padding: 15px 34px; border-radius: 10px;
+  text-decoration: none; display: inline-flex; align-items: center; gap: 10px; box-shadow: var(--shadow);
+}
+.download-sub { margin-top: 12px; font-family: "IBM Plex Mono", monospace; font-size: 11.5px; color: var(--muted); }
+
+.steps { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); margin-bottom: 36px; }
+.step { border: 1px solid var(--line); border-radius: 10px; padding: 18px 20px; background: var(--paper-raised); }
+.step .stepnum { font-family: "IBM Plex Mono", monospace; color: var(--bolt); font-weight: 700; font-size: 12px; margin-bottom: 8px; }
+.step h4 { margin: 0 0 5px; font-size: 14px; }
+.step p { margin: 0; font-size: 12.5px; color: var(--muted); }
+
+.warn-note { border: 1px solid var(--line); border-left: 3px solid var(--star-on); border-radius: 8px; background: var(--paper-raised); padding: 14px 18px; font-size: 13px; color: var(--muted); }
+.warn-note strong { color: var(--ink); }
+
+/* ===== coming soon panels ===== */
+.soon-panel { text-align: center; padding: 90px 32px; max-width: 640px; margin: 0 auto; }
+.soon-panel .soon-icon { font-family: "IBM Plex Mono", monospace; font-size: 13px; color: var(--bolt); text-transform: uppercase; letter-spacing: 0.12em; margin-bottom: 16px; }
+.soon-panel h2 { all: unset; font-family: "IBM Plex Mono", monospace; font-size: 26px; font-weight: 700; display: block; margin-bottom: 12px; }
+.soon-panel p { color: var(--muted); font-size: 14.5px; }
+
+footer {
+  max-width: 1120px; margin: 0 auto; padding: 26px 32px 50px;
+  border-top: 1px solid var(--line); font-family: "IBM Plex Mono", monospace; font-size: 11.5px; color: var(--muted);
+  display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px;
+}
+footer a { color: var(--muted); }
+</style>
+
+<nav class="topnav">
+  <a class="brand" href="#" onclick="showTab('overview');return false;"><span class="bolt-mark">&#9889;</span>Bolt</a>
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="overview" onclick="showTab('overview')">Overview</button>
+    <button class="tab-btn" data-tab="courses" onclick="showTab('courses')">Courses</button>
+    <button class="tab-btn" data-tab="compare" onclick="showTab('compare')">Comparisons</button>
+    <button class="tab-btn" data-tab="download" onclick="showTab('download')">Download</button>
+    <button class="tab-btn soon" data-tab="docs" onclick="showTab('docs')">Docs<span class="soon-tag">soon</span></button>
+    <button class="tab-btn soon" data-tab="packages" onclick="showTab('packages')">Packages<span class="soon-tag">soon</span></button>
+    <button class="tab-btn soon" data-tab="community" onclick="showTab('community')">Community<span class="soon-tag">soon</span></button>
+  </div>
+  <a class="nav-cta" href="#" onclick="showTab('download');return false;">Download</a>
+</nav>
+
+<!-- ============ OVERVIEW ============ -->
+<div class="panel active" id="panel-overview">
+  <div class="hero">
+    <div>
+      <p class="eyebrow">The Bolt Programming Language</p>
+      <h1>A language that runs <span class="accent">five different ways</span> from one codebase.</h1>
+      <p class="hero-dek">Tree-walking interpreter, bytecode VM, a native compiler down to real machine code, a JavaScript transpiler for the browser, and a built-in web server — all in one small, Python-flavored language, actively growing in the open.</p>
+      <div class="hero-ctas">
+        <a class="btn btn-primary" href="#" onclick="showTab('download');return false;">&#8681; Download Bolt Studio</a>
+        <a class="btn btn-secondary" href="#" onclick="showTab('courses');return false;">&#127891; Learn Bolt</a>
+        <a class="btn btn-secondary" href="#" onclick="showTab('compare');return false;">See the comparisons</a>
+      </div>
+      <div class="hero-meta">
+        <span><span class="dot-live"></span> v0.19.0 &middot; actively developed</span>
+        <span>MIT licensed</span>
+        <span>github.com/teo12342/Language</span>
+      </div>
+    </div>
+    <div class="code-window">
+      <div class="code-window-head"><span class="cdot" style="background:#e2895f"></span><span class="cdot"></span><span class="cdot"></span><span class="fname">game_demo.bo</span></div>
+      <pre><code><span class="kw">let</span> win = <span class="fn">window</span>(<span class="num">480</span>, <span class="num">320</span>, <span class="str">"My Game"</span>)
+<span class="kw">let</span> x = <span class="num">220</span>
+
+<span class="kw">while</span> <span class="fn">tick</span>(win, <span class="num">60</span>) {
+    <span class="kw">if</span> <span class="fn">key</span>(win, <span class="str">"left"</span>) { x = x - <span class="num">4</span> }
+    <span class="kw">if</span> <span class="fn">key</span>(win, <span class="str">"right"</span>) { x = x + <span class="num">4</span> }
+
+    <span class="fn">clear</span>(win, <span class="str">"#171410"</span>)
+    <span class="fn">rect</span>(win, x, <span class="num">140</span>, <span class="num">40</span>, <span class="num">40</span>, <span class="str">"#e2895f"</span>)
+}<span class="typecaret"></span></code></pre>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="block">
+      <h2>What makes Bolt different</h2>
+      <p class="section-note">Not five separate projects bolted together — one small codebase, one grammar, five ways to run it.</p>
+      <div class="feature-grid">
+        <div class="feature"><div class="ficon">&#9654;</div><h3>Bytecode VM</h3><p>The default engine. Compiles to bytecode, runs on a stack machine with an explicit call-frame stack — no Python recursion limits on deep Bolt recursion.</p></div>
+        <div class="feature"><div class="ficon">&#127760;</div><h3>Native compiler</h3><p>Opt-in <code>--native</code> AOT-compiles number-only functions straight to C, built with gcc or MSVC, running at genuine C-speed.</p></div>
+        <div class="feature"><div class="ficon">&#10024;</div><h3>JS transpiler</h3><p><code>--target js</code> compiles Bolt straight to a standalone .js file — runs in Node or any browser, no dependencies.</p></div>
+        <div class="feature"><div class="ficon">&#128225;</div><h3>Built-in web server</h3><p><code>serve()</code> answers real HTTP requests with dynamically computed responses — no framework required.</p></div>
+        <div class="feature"><div class="ficon">&#128230;</div><h3>Python interop</h3><p><code>pyimport()</code> borrows an allowlisted slice of Python's real standard library directly, instead of reimplementing it.</p></div>
+        <div class="feature"><div class="ficon">&#127918;</div><h3>Game dev primitives</h3><p>Real windows, drawing, sprites, mouse/keyboard input, collision detection, and sound — GPU-accelerated via SDL2 on Windows, tkinter fallback elsewhere — <code>window()</code> and friends.</p></div>
+        <div class="feature"><div class="ficon">&#9878;</div><h3>Native C interpreter (new, experimental)</h3><p><code>native/bolt.c</code> is a from-scratch interpreter with zero Python dependency at runtime — verified against the Python implementation on real scripts. Covers core language + Win32 game builtins; no typing/tensors/pyimport() yet.</p></div>
+      </div>
+    </div>
+
+    <div class="block">
+      <h2>Editor</h2>
+      <p class="section-note">Bolt Studio: a rebranded VSCodium build with Bolt syntax highlighting, a Bolt Dark theme, a built-in Run &amp; Preview panel, and an AI assistant baked in — the full VS Code experience (file explorer, terminal, git, extensions) plus first-class .bo support out of the box.</p>
+      <span class="version-badge">Windows build available &middot; see the Download tab</span>
+    </div>
+
+    <div class="block">
+      <h2>Bolt vs. Python, JavaScript, C, and C++</h2>
+      <p class="section-note">fib(30), raw speed — the number that matters most, first. C, C++, JavaScript, and Python were freshly re-measured on this machine (Windows, MSVC 2019 Build Tools, Node v24.18.0, Python 3.13.14); Bolt's native number is from the last verified run, not re-run this pass.</p>
+      <div class="verdict-strip">
+        <div class="verdict c"><div class="vlabel">C</div><div class="vvalue win">0.003 s</div></div>
+        <div class="verdict cpp"><div class="vlabel">C++</div><div class="vvalue win">0.003 s</div></div>
+        <div class="verdict bolt"><div class="vlabel">Bolt (native)</div><div class="vvalue win">0.005 s</div></div>
+        <div class="verdict"><div class="vlabel">JavaScript</div><div class="vvalue">0.007 s</div></div>
+        <div class="verdict"><div class="vlabel">Python</div><div class="vvalue">0.085 s</div></div>
+      </div>
+      <div class="rating-grid">
+        <div class="rating-card">
+          <div class="rating-title">Multiple execution backends, one project</div>
+          <div class="rating-why">Interpreter, VM, native compiler, JS transpiler, and a web server, all one codebase.</div>
+          <div class="rating-row bolt winner"><span class="rating-who">Bolt</span><span class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;&#9733;&#9733;&#9733;&#9733;&#9734;</span><span class="rating-score">9/10</span><span class="winner-badge">best</span></div>
+          <div class="rating-row c"><span class="rating-who">C / C++ / Python / JS</span><span class="stars">&#9733;&#9733;&#9733;&#9734;&#9734;&#9734;&#9734;&#9734;&#9734;&#9734;</span><span class="rating-score">3/10 each</span></div>
+        </div>
+        <div class="rating-card">
+          <div class="rating-title">Ecosystem &amp; libraries</div>
+          <div class="rating-why">npm and PyPI are enormous; Bolt has import(), pyimport(), and a tiny local registry.</div>
+          <div class="rating-row js winner"><span class="rating-who">JS / Python</span><span class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;&#9733;&#9733;&#9733;&#9733;&#9733;</span><span class="rating-score">10/10</span><span class="winner-badge">best</span></div>
+          <div class="rating-row bolt"><span class="rating-who">Bolt</span><span class="stars">&#9733;&#9733;&#9733;&#9733;&#9734;&#9734;&#9734;&#9734;&#9734;&#9734;</span><span class="rating-score">4/10</span></div>
+        </div>
+      </div>
+      <p style="margin:16px 0 0"><a href="#" onclick="showTab('compare');return false;" style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:var(--bolt);font-weight:600;text-decoration:none">See the full comparison &rarr;</a></p>
+    </div>
+  </div>
+</div>
+
+<!-- ============ COURSES (shelf) ============ -->
+<div class="panel" id="panel-courses">
+  <div class="section" style="padding-top:52px">
+    <p class="eyebrow">Learn Bolt</p>
+    <h1 style="font-family:'IBM Plex Mono',monospace;font-size:clamp(26px,4vw,36px);margin:0 0 14px;letter-spacing:-0.01em;">Two ways to learn, both real</h1>
+    <p class="section-note" style="font-size:15px;max-width:64ch">Every snippet in both books is real, runnable Bolt code, verified against the actual interpreter — not fabricated syntax. Pick a book below; each opens on its own, with its own table of contents.</p>
+
+    <div class="shelf">
+      <div class="book-cover">
+        <div class="blevel">Beginner</div>
+        <h3>Bolt for Beginners</h3>
+        <p>Start from zero. Install nothing, write your first script, and end with a small playable game and a tiny web server — the fastest real path through the language.</p>
+        <div class="bmeta"><span>9 chapters</span><span>&middot;</span><span>~75 min</span><span>&middot;</span><span>no prior Bolt needed</span></div>
+        <a class="book-open-btn" href="#" onclick="showTab('book-beginner');return false;">&#128214; Open the course</a>
+      </div>
+      <div class="book-cover">
+        <div class="blevel">Reference &middot; Advanced</div>
+        <h3>The Complete Bolt Book</h3>
+        <p>Every part of the language and its four alternate backends, in depth: typing, the standard library, tensors, modules, how execution actually works, native compilation, the JS transpiler, the web server, game dev, and the editor.</p>
+        <div class="bmeta"><span>18 chapters</span><span>&middot;</span><span>reference depth</span><span>&middot;</span><span>assumes ch. 1&ndash;7 of the beginner course</span></div>
+        <a class="book-open-btn" href="#" onclick="showTab('book-full');return false;">&#128213; Open the book</a>
+      </div>
+    </div>
+
+    <div class="full-report-cta">
+      <span>Every example in both books lives in the repo too, runnable as-is: <code style="font-family:inherit">examples/</code> has closures.bo, loops.bo, tensor.bo, pyimport_demo.bo, game_demo.bo, webserver.bo, and more.</span>
+      <a href="https://github.com/teo12342/Language/tree/main/examples" target="_blank" rel="noopener">Browse examples/ &rarr;</a>
+    </div>
+  </div>
+</div>
+
+<!-- ============ BOOK: BEGINNER ============ -->
+<div class="panel" id="panel-book-beginner">
+  <div class="section" style="padding-top:40px">
+    <button class="book-back" onclick="showTab('courses')">&larr; Back to Courses</button>
+    <p class="eyebrow">Bolt for Beginners</p>
+    <h1 style="font-family:'IBM Plex Mono',monospace;font-size:clamp(24px,4vw,32px);margin:0 0 30px;letter-spacing:-0.01em;">From zero to shipping a small game</h1>
+
+    <div class="book-reader">
+      <nav class="book-toc">
+        <div class="book-toc-title">Chapters</div>
+        <a href="#bg-1">1. Getting started</a>
+        <a href="#bg-2">2. Variables &amp; types</a>
+        <a href="#bg-3">3. Control flow</a>
+        <a href="#bg-4">4. Lists and maps</a>
+        <a href="#bg-5">5. Functions and closures</a>
+        <a href="#bg-6">6. Gradual typing</a>
+        <a href="#bg-7">7. Modules &amp; Python interop</a>
+        <a href="#bg-8">8. Native compilation for speed</a>
+        <a href="#bg-9">9. Capstone: a small game</a>
+        <a href="#bg-editor">Using Bolt Studio</a>
+      </nav>
+
+      <div>
+        <div class="chapter" id="bg-1">
+          <div class="cnum">Chapter 1</div>
+          <h3>Getting started</h3>
+          <p>Install nothing but Python. Bolt has zero dependencies to run a script — no package manager, no build step.</p>
+          <div class="code-window">
+            <div class="code-window-head"><span class="cdot" style="background:#e2895f"></span><span class="cdot"></span><span class="cdot"></span><span class="fname">hello.bo</span></div>
+            <pre><code><span class="fn">print</span>(<span class="str">"Hello from Bolt"</span>)
+<span class="kw">let</span> name = <span class="str">"world"</span>
+<span class="fn">print</span>(<span class="str">"Hello, "</span> + name)</code></pre>
+          </div>
+          <p class="muted-p"><strong style="color:var(--ink)">Run it:</strong> <code class="inline-c">python cli.py hello.bo</code> — or <code class="inline-c">python cli.py -i</code> for a live REPL.</p>
+        </div>
+
+        <div class="chapter" id="bg-2">
+          <div class="cnum">Chapter 2</div>
+          <h3>Variables and types</h3>
+          <p>Numbers are always internally floats but print without a trailing <code class="inline-c">.0</code> when whole. Strings, booleans, and <code class="inline-c">nil</code> round out the basics.</p>
+          <div class="code-window">
+            <div class="code-window-head"><span class="cdot" style="background:#e2895f"></span><span class="cdot"></span><span class="cdot"></span><span class="fname">variables.bo</span></div>
+            <pre><code><span class="kw">let</span> age = <span class="num">30</span>
+<span class="kw">let</span> price = <span class="num">19.99</span>
+<span class="kw">let</span> name = <span class="str">"Ada"</span>
+<span class="kw">let</span> active = <span class="kw">true</span>
+<span class="kw">let</span> nothing = <span class="kw">nil</span>
+<span class="fn">print</span>(age, price, name, active, nothing)
+<span class="fn">print</span>(<span class="fn">type</span>(age), <span class="fn">type</span>(name))</code></pre>
+          </div>
+        </div>
+
+        <div class="chapter" id="bg-3">
+          <div class="cnum">Chapter 3</div>
+          <h3>Control flow</h3>
+          <p><code class="inline-c">if</code>/<code class="inline-c">else</code>, <code class="inline-c">while</code>, and <code class="inline-c">for x in ...</code>, plus <code class="inline-c">break</code> and <code class="inline-c">continue</code> work exactly as you'd expect from Python.</p>
+          <div class="code-window">
+            <div class="code-window-head"><span class="cdot" style="background:#e2895f"></span><span class="cdot"></span><span class="cdot"></span><span class="fname">control_flow.bo</span></div>
+            <pre><code><span class="kw">let</span> total = <span class="num">0</span>
+<span class="kw">let</span> i = <span class="num">0</span>
+<span class="kw">while</span> i &lt; <span class="num">5</span> {
+    <span class="kw">if</span> i == <span class="num">3</span> { i = i + <span class="num">1</span>; <span class="kw">continue</span> }
+    total = total + i
+    i = i + <span class="num">1</span>
+}
+
+<span class="kw">for</span> n <span class="kw">in</span> <span class="fn">range</span>(<span class="num">1</span>, <span class="num">11</span>) {
+    <span class="kw">if</span> n &gt; <span class="num">7</span> { <span class="kw">break</span> }
+    total = total + n
+}
+<span class="fn">print</span>(total)</code></pre>
+          </div>
+        </div>
+
+        <div class="chapter" id="bg-4">
+          <div class="cnum">Chapter 4</div>
+          <h3>Lists and maps</h3>
+          <p>Lists are ordered, index with <code class="inline-c">[]</code>, and <code class="inline-c">for x in list</code> iterates directly. Maps use string keys, also indexed with <code class="inline-c">[]</code>.</p>
+          <div class="code-window">
+            <div class="code-window-head"><span class="cdot" style="background:#e2895f"></span><span class="cdot"></span><span class="cdot"></span><span class="fname">collections.bo</span></div>
+            <pre><code><span class="kw">let</span> nums = [<span class="num">1</span>, <span class="num">2</span>, <span class="num">3</span>]
+<span class="fn">push</span>(nums, <span class="num">4</span>)
+<span class="fn">print</span>(nums, <span class="fn">len</span>(nums))
+
+<span class="kw">for</span> n <span class="kw">in</span> nums {
+    <span class="fn">print</span>(<span class="str">"item:"</span>, n)
+}
+
+<span class="kw">let</span> person = {<span class="str">"name"</span>: <span class="str">"Ada"</span>, <span class="str">"age"</span>: <span class="num">30</span>}
+<span class="fn">print</span>(person[<span class="str">"name"</span>], <span class="fn">keys</span>(person))</code></pre>
+          </div>
+        </div>
+
+        <div class="chapter" id="bg-5">
+          <div class="cnum">Chapter 5</div>
+          <h3>Functions and closures</h3>
+          <p>Functions are first-class values. Closures capture their enclosing scope correctly — each call to <code class="inline-c">make_counter()</code> gets its own independent count, not a shared one.</p>
+          <div class="code-window">
+            <div class="code-window-head"><span class="cdot" style="background:#e2895f"></span><span class="cdot"></span><span class="cdot"></span><span class="fname">closures.bo</span></div>
+            <pre><code><span class="kw">func</span> <span class="fn">make_counter</span>() {
+    <span class="kw">let</span> count = <span class="num">0</span>
+    <span class="kw">func</span> <span class="fn">increment</span>() {
+        count = count + <span class="num">1</span>
+        <span class="kw">return</span> count
+    }
+    <span class="kw">return</span> increment
+}
+
+<span class="kw">let</span> counter = <span class="fn">make_counter</span>()
+<span class="fn">print</span>(<span class="fn">counter</span>())  <span class="com"># 1</span>
+<span class="fn">print</span>(<span class="fn">counter</span>())  <span class="com"># 2</span>
+
+<span class="com"># anonymous functions work as values too</span>
+<span class="kw">let</span> adder = <span class="kw">func</span>(x) { <span class="kw">return</span> <span class="kw">func</span>(y) { <span class="kw">return</span> x + y } }
+<span class="kw">let</span> add5 = <span class="fn">adder</span>(<span class="num">5</span>)
+<span class="fn">print</span>(<span class="fn">add5</span>(<span class="num">10</span>))  <span class="com"># 15</span></code></pre>
+          </div>
+        </div>
+
+        <div class="chapter" id="bg-6">
+          <div class="cnum">Chapter 6</div>
+          <h3>Gradual typing</h3>
+          <p>Annotate what you want checked; leave the rest fully dynamic. A static pass catches type errors before the script runs at all.</p>
+          <div class="code-window">
+            <div class="code-window-head"><span class="cdot" style="background:#e2895f"></span><span class="cdot"></span><span class="cdot"></span><span class="fname">typed.bo</span></div>
+            <pre><code><span class="kw">func</span> <span class="fn">add</span>(a: number, b: number): number {
+    <span class="kw">return</span> a + b
+}
+<span class="kw">let</span> total: number = <span class="fn">add</span>(<span class="num">2</span>, <span class="num">3</span>)
+
+<span class="com"># unannotated stays fully dynamic</span>
+<span class="kw">let</span> anything = <span class="str">"a string"</span>
+anything = <span class="num">42</span>  <span class="com"># fine, no annotation here</span></code></pre>
+          </div>
+          <p class="muted-p">Type annotations are opt-in per variable or function — Bolt never forces you to type everything.</p>
+        </div>
+
+        <div class="chapter" id="bg-7">
+          <div class="cnum">Chapter 7</div>
+          <h3>Modules and Python interop</h3>
+          <p><code class="inline-c">import()</code> loads another <code class="inline-c">.bo</code> file as a module. <code class="inline-c">pyimport()</code> borrows an allowlisted slice of Python's real standard library directly.</p>
+          <div class="code-window">
+            <div class="code-window-head"><span class="cdot" style="background:#e2895f"></span><span class="cdot"></span><span class="cdot"></span><span class="fname">modules.bo</span></div>
+            <pre><code><span class="kw">let</span> math_utils = <span class="fn">import</span>(<span class="str">"packages/mathutils.bo"</span>)
+<span class="fn">print</span>(math_utils.<span class="fn">is_prime</span>(<span class="num">17</span>))
+
+<span class="kw">let</span> stats = <span class="fn">pyimport</span>(<span class="str">"statistics"</span>)
+<span class="fn">print</span>(stats.<span class="fn">mean</span>([<span class="num">4</span>, <span class="num">8</span>, <span class="num">15</span>, <span class="num">16</span>]))</code></pre>
+          </div>
+          <p class="muted-p"><code class="inline-c">pyimport()</code> is restricted to a safe allowlist (math, statistics, json, itertools, and similar) — no filesystem or process access.</p>
+        </div>
+
+        <div class="chapter" id="bg-8">
+          <div class="cnum">Chapter 8</div>
+          <h3>Native compilation for speed</h3>
+          <p>Annotate a function's params and return type as <code class="inline-c">number</code>, run with <code class="inline-c">--native</code>, and eligible functions compile straight to C — real machine-code speed for the hot path.</p>
+          <div class="code-window">
+            <div class="code-window-head"><span class="cdot" style="background:#e2895f"></span><span class="cdot"></span><span class="cdot"></span><span class="fname">fib.bo</span></div>
+            <pre><code><span class="kw">func</span> <span class="fn">fib</span>(n: number): number {
+    <span class="kw">if</span> n &lt; <span class="num">2</span> { <span class="kw">return</span> n }
+    <span class="kw">return</span> <span class="fn">fib</span>(n - <span class="num">1</span>) + <span class="fn">fib</span>(n - <span class="num">2</span>)
+}
+<span class="fn">print</span>(<span class="fn">fib</span>(<span class="num">30</span>))</code></pre>
+          </div>
+          <p class="muted-p"><strong style="color:var(--ink)">Run it:</strong> <code class="inline-c">python cli.py fib.bo --native</code> — needs gcc, or on Windows falls back to MSVC's cl.exe automatically.</p>
+        </div>
+
+        <div class="chapter" id="bg-9">
+          <div class="cnum">Chapter 9 &middot; Capstone</div>
+          <h3>Build a small game</h3>
+          <p>Everything from chapters 1&ndash;6 comes together: variables, control flow, and functions driving a real window.</p>
+          <div class="code-window">
+            <div class="code-window-head"><span class="cdot" style="background:#e2895f"></span><span class="cdot"></span><span class="cdot"></span><span class="fname">mygame.bo</span></div>
+            <pre><code><span class="kw">let</span> win = <span class="fn">window</span>(<span class="num">480</span>, <span class="num">320</span>, <span class="str">"My Game"</span>)
+<span class="kw">let</span> x = <span class="num">220</span>
+
+<span class="kw">while</span> <span class="fn">tick</span>(win, <span class="num">60</span>) {
+    <span class="kw">if</span> <span class="fn">key</span>(win, <span class="str">"left"</span>) { x = x - <span class="num">4</span> }
+    <span class="kw">if</span> <span class="fn">key</span>(win, <span class="str">"right"</span>) { x = x + <span class="num">4</span> }
+
+    <span class="fn">clear</span>(win, <span class="str">"#171410"</span>)
+    <span class="fn">rect</span>(win, x, <span class="num">140</span>, <span class="num">40</span>, <span class="num">40</span>, <span class="str">"#e2895f"</span>)
+
+    <span class="kw">if</span> <span class="fn">key</span>(win, <span class="str">"escape"</span>) { <span class="fn">close_window</span>(win) }
+}</code></pre>
+          </div>
+          <p class="muted-p">Add <code class="inline-c">rects_overlap()</code> for collision, <code class="inline-c">beep()</code> for sound, and <code class="inline-c">draw_image()</code> for sprites — see the full walkthrough in <code class="inline-c">examples/game_demo.bo</code>. For the web-server counterpart, see Chapter 15 of <em>The Complete Bolt Book</em>.</p>
+        </div>
+
+        <div class="chapter" id="bg-editor">
+          <div class="cnum">Also in this book</div>
+          <h3>Using Bolt Studio</h3>
+          <p>The editor tutorial: everything specific to writing Bolt in Bolt Studio rather than a plain text editor.</p>
+          <div class="editor-course">
+            <div class="editor-step"><div class="estepnum">01</div><h4>Install and open</h4><p>Download Bolt Studio from the Download tab and run the installer. It launches from the Start Menu once setup finishes.</p></div>
+            <div class="editor-step"><div class="estepnum">02</div><h4>Open or create a .bo file</h4><p><code>File &gt; New File</code>, save as anything ending in <code>.bo</code> — syntax highlighting applies automatically, no extension to install.</p></div>
+            <div class="editor-step"><div class="estepnum">03</div><h4>Switch to Bolt Dark</h4><p><code>Ctrl+K Ctrl+T</code> opens the theme picker — select "Bolt Dark" for the full brand theme, not just syntax colors.</p></div>
+            <div class="editor-step"><div class="estepnum">04</div><h4>Run from the integrated terminal</h4><p>Bolt Studio ships the full VS Code terminal panel (<code>Ctrl+`</code>) — run <code>python cli.py yourscript.bo</code> right there.</p></div>
+            <div class="editor-step"><div class="estepnum">05</div><h4>Use everything else VS Code already has</h4><p>File explorer, git integration, multi-cursor editing, the extension marketplace — it's all still there.</p></div>
+          </div>
+          <div class="warn-note"><strong>Heads up:</strong> Bolt doesn't have a language server yet, so there's no autocomplete or inline type-checking in the editor itself — type errors still surface when you run the script.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ BOOK: THE COMPLETE BOLT BOOK ============ -->
+<div class="panel" id="panel-book-full">
+  <div class="section" style="padding-top:40px">
+    <button class="book-back" onclick="showTab('courses')">&larr; Back to Courses</button>
+    <p class="eyebrow">The Complete Bolt Book</p>
+    <h1 style="font-family:'IBM Plex Mono',monospace;font-size:clamp(24px,4vw,32px);margin:0 0 30px;letter-spacing:-0.01em;">Every part of the language, in depth</h1>
+
+    <div class="book-reader">
+      <nav class="book-toc">
+        <div class="book-toc-title">Chapters</div>
+        <a href="#bk-1">1. Overview &amp; philosophy</a>
+        <a href="#bk-2">2. Values and types</a>
+        <a href="#bk-3">3. Operators</a>
+        <a href="#bk-4">4. Functions in depth</a>
+        <a href="#bk-5">5. Typing in depth</a>
+        <a href="#bk-6">6. String &amp; list stdlib</a>
+        <a href="#bk-7">7. Tensors</a>
+        <a href="#bk-8">8. Modules &amp; packages</a>
+        <a href="#bk-9">9. Python interop in depth</a>
+        <a href="#bk-10">10. How execution works</a>
+        <a href="#bk-11">11. Native compilation in depth</a>
+        <a href="#bk-12">12. The JS transpiler</a>
+        <a href="#bk-13">13. Game dev toolkit</a>
+        <a href="#bk-14">14. Mouse, sound &amp; sprites</a>
+        <a href="#bk-15">15. The built-in web server</a>
+        <a href="#bk-16">16. Bolt Studio in depth</a>
+        <a href="#bk-17">17. Package registry</a>
+        <a href="#bk-18">18. What's not there yet</a>
+      </nav>
+
+      <div>
+        <div class="chapter" id="bk-1">
+          <div class="cnum">Chapter 1</div>
+          <h3>Overview and philosophy</h3>
+          <p>Bolt is a small, Python-flavored language built around one unusual idea: the same source can run five different ways from one codebase — a tree-walking interpreter, a bytecode VM (the default), an AOT native compiler down to real C, a JavaScript transpiler, and a built-in HTTP server. Most languages get that kind of breadth from separate outside projects (PyPy vs. CPython, V8 vs. SpiderMonkey); Bolt ships all of it together.</p>
+          <p class="muted-p">The syntax deliberately reads like Python (indentation aside — Bolt uses braces) to keep the learning curve low, while gradual typing and native compilation are opt-in, not required.</p>
+        </div>
+
+        <div class="chapter" id="bk-2">
+          <div class="cnum">Chapter 2</div>
+          <h3>Values and types</h3>
+          <p>Bolt has seven kinds of values: numbers (always float internally, printed without a trailing <code class="inline-c">.0</code> when whole), strings, booleans, <code class="inline-c">nil</code>, lists, maps, and tensors. <code class="inline-c">type(x)</code> returns a value's type name as a string, and <code class="inline-c">num(x)</code> / <code class="inline-c">str(x)</code> convert between representations where it makes sense.</p>
+          <div class="code-window">
+            <div class="code-window-head"><span class="cdot" style="background:#e2895f"></span><span class="cdot"></span><span class="cdot"></span><span class="fname">types.bo</span></div>
+            <pre><code><span class="fn">print</span>(<span class="fn">type</span>(<span class="num">42</span>), <span class="fn">type</span>(<span class="str">"hi"</span>), <span class="fn">type</span>(<span class="kw">true</span>), <span class="fn">type</span>([<span class="num">1</span>]))
+<span class="fn">print</span>(<span class="fn">num</span>(<span class="str">"3.5"</span>) + <span class="num">1</span>, <span class="fn">str</span>(<span class="num">42</span>) + <span class="str">"!"</span>)</code></pre>
+          </div>
+        </div>
+
+        <div class="chapter" id="bk-3">
+          <div class="cnum">Chapter 3</div>
+          <h3>Operators</h3>
+          <p>Arithmetic: <code class="inline-c">+ - * / % **</code>. Comparison: <code class="inline-c">== != &lt; &lt;= &gt; &gt;=</code>. Logical: <code class="inline-c">and or not</code>, both short-circuiting. <code class="inline-c">+</code> on two strings concatenates; <code class="inline-c">*</code> between a string and an int repeats it.</p>
+          <div class="code-window">
+            <div class="code-window-head"><span class="cdot" style="background:#e2895f"></span><span class="cdot"></span><span class="cdot"></span><span class="fname">operators.bo</span></div>
+            <pre><code><span class="fn">print</span>(<span class="str">"ab"</span> * <span class="num">3</span>)          <span class="com"># "ababab"</span>
+<span class="fn">print</span>(<span class="str">"a"</span> + <span class="str">"b"</span>)          <span class="com"># "ab"</span>
+<span class="fn">print</span>(<span class="num">7</span> % <span class="num">3</span>, <span class="num">2</span> ** <span class="num">10</span>) <span class="com"># 1 1024</span>
+<span class="fn">print</span>(<span class="kw">true</span> <span class="kw">and</span> <span class="kw">false</span> <span class="kw">or</span> <span class="kw">not</span> <span class="kw">false</span>)</code></pre>
+          </div>
+        </div>
+
+        <div class="chapter" id="bk-4">
+          <div class="cnum">Chapter 4</div>
+          <h3>Functions in depth</h3>
+          <p>Named functions (<code class="inline-c">func name(...) { ... }</code>) and anonymous functions (<code class="inline-c">func(...) { ... }</code> as an expression) share the same closure semantics. Recursion works normally, and since v0.15.0 the VM uses an explicit call-frame stack rather than recursing through Python's own call stack, so deep Bolt recursion (tested to 50,000+ levels) no longer crashes.</p>
+        </div>
+
+        <div class="chapter" id="bk-5">
+          <div class="cnum">Chapter 5</div>
+          <h3>Gradual typing in depth</h3>
+          <p>Annotations are checked by a static pass before execution — <code class="inline-c">let x: number = "oops"</code> is rejected before the script runs at all, not at the moment that line executes. Function parameters, return types, and <code class="inline-c">let</code> bindings can all be annotated independently; anything left unannotated stays fully dynamic, including inside an otherwise-typed function.</p>
+        </div>
+
+        <div class="chapter" id="bk-6">
+          <div class="cnum">Chapter 6</div>
+          <h3>String and list standard library</h3>
+          <p>Roughly twenty built-ins cover the common cases without a module system to reach for. Note that <code class="inline-c">sort()</code> and <code class="inline-c">reverse()</code> mutate their argument in place (and also return it) — a real gotcha if you expected a copy.</p>
+          <div class="code-window">
+            <div class="code-window-head"><span class="cdot" style="background:#e2895f"></span><span class="cdot"></span><span class="cdot"></span><span class="fname">stdlib.bo</span></div>
+            <pre><code><span class="fn">print</span>(<span class="fn">upper</span>(<span class="str">"bolt"</span>), <span class="fn">trim</span>(<span class="str">"  hi  "</span>))
+<span class="fn">print</span>(<span class="fn">split</span>(<span class="str">"a,b,c"</span>, <span class="str">","</span>), <span class="fn">join</span>([<span class="str">"a"</span>,<span class="str">"b"</span>], <span class="str">"-"</span>))
+<span class="fn">print</span>(<span class="fn">starts_with</span>(<span class="str">"bolt.bo"</span>, <span class="str">"bolt"</span>))
+
+<span class="kw">let</span> nums = [<span class="num">5</span>, <span class="num">3</span>, <span class="num">1</span>]
+<span class="fn">sort</span>(nums)  <span class="com"># mutates nums to [1, 3, 5]</span>
+<span class="fn">print</span>(nums, <span class="fn">contains</span>(nums, <span class="num">3</span>), <span class="fn">index_of</span>(nums, <span class="num">3</span>))</code></pre>
+          </div>
+        </div>
+
+        <div class="chapter" id="bk-7">
+          <div class="cnum">Chapter 7</div>
+          <h3>Tensors and numeric computing</h3>
+          <p>A dense tensor type with elementwise ops, <code class="inline-c">dot</code>, <code class="inline-c">matmul</code>, <code class="inline-c">transpose</code>, <code class="inline-c">identity</code>, and <code class="inline-c">tmap</code> (apply a Bolt function elementwise). Works identically across the VM, the tree-walking interpreter, and the JS transpiler target.</p>
+          <div class="code-window">
+            <div class="code-window-head"><span class="cdot" style="background:#e2895f"></span><span class="cdot"></span><span class="cdot"></span><span class="fname">tensor.bo</span></div>
+            <pre><code><span class="kw">let</span> m = <span class="fn">tensor</span>([[<span class="num">1</span>, <span class="num">2</span>, <span class="num">3</span>], [<span class="num">4</span>, <span class="num">5</span>, <span class="num">6</span>]])
+<span class="fn">print</span>(<span class="fn">tolist</span>(<span class="fn">transpose</span>(m)))
+<span class="fn">print</span>(<span class="fn">dot</span>(<span class="fn">tensor</span>([<span class="num">1</span>,<span class="num">2</span>,<span class="num">3</span>]), <span class="fn">tensor</span>([<span class="num">4</span>,<span class="num">5</span>,<span class="num">6</span>])))
+
+<span class="kw">func</span> <span class="fn">double</span>(x) { <span class="kw">return</span> x * <span class="num">2</span> }
+<span class="fn">print</span>(<span class="fn">tolist</span>(<span class="fn">tmap</span>(<span class="fn">tensor</span>([<span class="num">1</span>, <span class="num">2</span>, <span class="num">3</span>]), double)))</code></pre>
+          </div>
+          <p class="muted-p">No broadcasting and no GPU support yet — this is a real capability, not a NumPy replacement.</p>
+        </div>
+
+        <div class="chapter" id="bk-8">
+          <div class="cnum">Chapter 8</div>
+          <h3>Modules and the package system</h3>
+          <p><code class="inline-c">import(path)</code> loads another <code class="inline-c">.bo</code> file and returns a map of everything it defines. There's also a small local package registry (mathutils, stringutils, stats) bundled with the repo — a real start on ecosystem/libraries, still explicitly not a full package manager (no registry to publish to, no version resolution).</p>
+        </div>
+
+        <div class="chapter" id="bk-9">
+          <div class="cnum">Chapter 9</div>
+          <h3>Python interop in depth</h3>
+          <p><code class="inline-c">pyimport(name)</code> loads a real Python standard-library module and hands back a Bolt map of its public functions and constants — the same shortcut Deno took by staying npm-compatible instead of rebuilding a package ecosystem from scratch. Restricted to a curated allowlist (math, random, statistics, json, re, itertools, datetime, string, collections, functools, fractions, decimal, textwrap, unicodedata, calendar, bisect, heapq) — this is a bridge to safe library code, not a general FFI. <code class="inline-c">pyimport("os")</code> fails with a clear error rather than granting shell or filesystem access.</p>
+        </div>
+
+        <div class="chapter" id="bk-10">
+          <div class="cnum">Chapter 10</div>
+          <h3>How execution actually works</h3>
+          <p>The default bytecode VM compiles the AST to bytecode (constant pool, resolved local/global/upvalue slots, jump-patched control flow) and runs it on a stack machine. A Bolt-to-Bolt function call pushes a saved frame onto an explicit call stack and continues the same loop — not a nested Python call — which is why deep recursion no longer crashes. The original tree-walking interpreter is kept as a reference implementation (<code class="inline-c">--engine tree</code>); both engines are tested against the same cases and always agree.</p>
+          <p class="muted-p">Honest performance note: the default VM is genuinely slow for interpreted code — <code class="inline-c">fib(30)</code> takes roughly 17 seconds, about 100x slower than Python. The bottleneck is per-opcode dispatch cost in a pure-Python loop, not the call-stack design. See <em>Chapter 11</em> for the escape hatch.</p>
+        </div>
+
+        <div class="chapter" id="bk-11">
+          <div class="cnum">Chapter 11</div>
+          <h3>Native compilation in depth</h3>
+          <p>Any top-level function whose parameters and return type are all annotated <code class="inline-c">number</code> — and whose body only uses arithmetic, comparisons, <code class="inline-c">if</code>/<code class="inline-c">while</code>, <code class="inline-c">for x in range(...)</code>, <code class="inline-c">return</code>, and calls to <code class="inline-c">sqrt</code>/<code class="inline-c">abs</code>/<code class="inline-c">floor</code>/<code class="inline-c">ceil</code>/<code class="inline-c">pow</code>/<code class="inline-c">min</code>/<code class="inline-c">max</code> or other eligible functions — is eligible. Eligible functions compile to C, build with <code class="inline-c">gcc -O2</code> (or MSVC's <code class="inline-c">cl.exe /O2</code> on Windows without gcc), and load back via ctypes, transparently replacing the interpreted version under the same name.</p>
+          <p class="muted-p">Measured this way: <code class="inline-c">fib(30)</code> runs in ~0.005s of native execution, matching C (0.003s) and C++ (0.004s) within noise — but only for this narrow eligible subset, not the language generally.</p>
+        </div>
+
+        <div class="chapter" id="bk-12">
+          <div class="cnum">Chapter 12</div>
+          <h3>The JavaScript transpiler</h3>
+          <p><code class="inline-c">--target js</code> compiles the AST directly to a standalone <code class="inline-c">.js</code> file that runs in Node or any browser with zero dependencies — not a runtime interpreter shipped alongside the output, a real compile step. <code class="inline-c">pyimport()</code> isn't available under this target (no Python runtime to call into in a browser); it fails with a clear error at compile time rather than producing broken JS.</p>
+          <div class="code-window">
+            <div class="code-window-head"><span class="cdot" style="background:#e2895f"></span><span class="cdot"></span><span class="cdot"></span><span class="fname">shell</span></div>
+            <pre><code>python cli.py fibonacci.bo --target js   <span class="com"># writes fibonacci.js</span>
+node fibonacci.js</code></pre>
+          </div>
+        </div>
+
+        <div class="chapter" id="bk-13">
+          <div class="cnum">Chapter 13</div>
+          <h3>Game development toolkit</h3>
+          <p><code class="inline-c">window(width, height, title)</code> opens a real on-screen window — GPU-accelerated via a bundled SDL2 renderer on Windows, falling back automatically to a tkinter software canvas anywhere that isn't available. <code class="inline-c">tick(win, fps)</code> pumps the event loop, paces to the target frame rate, and returns <code class="inline-c">false</code> once the window closes — <code class="inline-c">while tick(win, 60) { ... }</code> is the entire game loop.</p>
+          <p class="muted-p">Drawing: <code class="inline-c">clear</code>, <code class="inline-c">rect</code>, <code class="inline-c">circle</code>, <code class="inline-c">line</code>, <code class="inline-c">draw_text</code>, <code class="inline-c">draw_image</code>. Collision: <code class="inline-c">rects_overlap()</code> and <code class="inline-c">circles_overlap()</code>.</p>
+          <p class="muted-p"><strong style="color:var(--ink)">New in v0.19.0:</strong> a real GPU-accelerated rendering backend — every drawing/sprite call now runs through SDL2's hardware-accelerated <code class="inline-c">SDL_Renderer</code> on Windows (bundled, zero extra install) instead of tkinter's software canvas, with tkinter kept as an automatic fallback everywhere else. Same public API, no script changes required. See the changelog for the real bugs (a truncated 64-bit pointer, a wrong-by-default color channel order) found and fixed while building it.</p>
+          <p class="muted-p"><strong style="color:var(--ink)">New in v0.18.0:</strong> sprite animation (<code class="inline-c">load_spritesheet()</code>, <code class="inline-c">make_anim()</code>, <code class="inline-c">anim_draw()</code>), audio mixing (<code class="inline-c">play_channel()</code>/<code class="inline-c">stop_channel()</code> — multiple named channels play simultaneously via Windows MCI, unlike <code class="inline-c">play_sound()</code> which can only play one sound at a time), basic physics (<code class="inline-c">apply_gravity()</code>, <code class="inline-c">physics_step()</code>, <code class="inline-c">clamp()</code>), and a scene/state stack (<code class="inline-c">packages/scenes.bo</code>). See <code class="inline-c">examples/platformer_demo.bo</code> for all four together.</p>
+        </div>
+
+        <div class="chapter" id="bk-14">
+          <div class="cnum">Chapter 14</div>
+          <h3>Mouse, sound, and sprites</h3>
+          <p><code class="inline-c">mouse_x(win)</code> / <code class="inline-c">mouse_y(win)</code> / <code class="inline-c">mouse_down(win, button)</code> track real cursor position and button state (<code class="inline-c">"left"</code> or <code class="inline-c">"right"</code>). <code class="inline-c">draw_image(win, path, x, y)</code> draws a real PNG/GIF, cached per window by path. <code class="inline-c">beep(freq, duration_ms)</code> and <code class="inline-c">play_sound(path)</code> / <code class="inline-c">stop_sound()</code> give real audio via the stdlib <code class="inline-c">winsound</code> module — Windows only, with a clear error elsewhere.</p>
+        </div>
+
+        <div class="chapter" id="bk-15">
+          <div class="cnum">Chapter 15</div>
+          <h3>The built-in web server</h3>
+          <p><code class="inline-c">serve(port, handler, max_requests)</code> starts a real <code class="inline-c">http.server.HTTPServer</code>. <code class="inline-c">handler</code> is a Bolt function taking the request path and returning the response body, so every response is computed live by Bolt code. <code class="inline-c">max_requests</code> defaults to 1 (so a demo doesn't hang forever); pass <code class="inline-c">0</code> to run until killed.</p>
+          <p class="muted-p">Deliberately minimal: GET-only, no routing table, no request bodies — a foothold, not a framework.</p>
+        </div>
+
+        <div class="chapter" id="bk-16">
+          <div class="cnum">Chapter 16</div>
+          <h3>Bolt Studio in depth</h3>
+          <p>Bolt Studio is a rebranded VSCodium build (the telemetry-free, open-source build of VS Code) with the Bolt language extension baked in as a built-in extension — not something you find and install from a marketplace. That extension contributes real TextMate-grammar syntax highlighting for <code class="inline-c">.bo</code> files, file icons, and a full workbench color theme ("Bolt Dark": activity bar, tabs, buttons, editor chrome, not just syntax colors) built around the same palette used across this site.</p>
+          <p class="muted-p">Everything else — file explorer, terminal, git integration, the extension marketplace for every other language — comes free from the underlying VS Code codebase. No language server yet, so no autocomplete or inline type errors inside the editor itself.</p>
+        </div>
+
+        <div class="chapter" id="bk-17">
+          <div class="cnum">Chapter 17</div>
+          <h3>The local package registry</h3>
+          <p>Three small bundled packages ship in the repo's <code class="inline-c">packages/</code> directory: <code class="inline-c">mathutils.bo</code> (square, factorial, is_prime, gcd), <code class="inline-c">stringutils.bo</code> (title_case, is_palindrome, pad_left), and <code class="inline-c">stats.bo</code> (mean, median, stddev) — loaded the same way as any other module, via <code class="inline-c">import("packages/mathutils.bo")</code>.</p>
+        </div>
+
+        <div class="chapter" id="bk-18">
+          <div class="cnum">Chapter 18</div>
+          <h3>What's not there yet</h3>
+          <p>Read honestly, not glossed over: no <code class="inline-c">try</code>/<code class="inline-c">catch</code> in the language itself — a runtime error is fatal, surfaced with a clear message and line number rather than recoverable. No language server (no autocomplete, no go-to-definition). No public package registry to publish to. The default VM is genuinely slow outside the native-compiled path (see Chapter 10). Tensors have no broadcasting or GPU support (rendering is a separate matter — see below). As of v0.19.0 the game-dev toolkit's rendering is GPU-accelerated via SDL2 on Windows (tkinter fallback elsewhere), on top of v0.18.0's sprite animation, audio mixing, basic physics, and a scene/state stack (see Chapter 13) — still no scene *graph* (a rendering hierarchy), no shipped games, and no community around any of it.</p>
+          <p class="muted-p">None of this is hidden on the Comparisons tab either — see the full report for the same gaps stated in direct comparison to Python, JavaScript, C, and C++.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ COMPARISONS ============ -->
+<div class="panel" id="panel-compare">
+  <div class="section" style="padding-top:52px">
+    <p class="eyebrow">Generated by a Bolt script, not hand-written HTML</p>
+    <h1 style="font-family:'IBM Plex Mono',monospace;font-size:clamp(26px,4vw,36px);margin:0 0 14px;letter-spacing:-0.01em;">Bolt vs. Python, JavaScript, C, and C++</h1>
+    <p class="section-note" style="font-size:15px;max-width:68ch">This entire report is built by <code style="font-family:inherit">generate_page.bo</code>, a real Bolt program, and printed as HTML by the actual Bolt interpreter — not a page describing Bolt, Bolt output. Five languages, including a game-development category.</p>
+    <div style="display:flex;flex-wrap:wrap;gap:8px 20px;margin:0 0 18px;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--muted)">
+      <span>Bolt &middot; days old</span><span>Python &middot; 1991, 35 years</span><span>JavaScript &middot; 1995, 31 years</span><span>C &middot; 1972, 54 years</span><span>C++ &middot; 1985, 41 years</span>
+    </div>
+    <p style="margin:0 0 34px"><a href="https://claude.ai/code/artifact/f83a7e4d-07e9-4c63-bc80-07e400db5c15" target="_blank" rel="noopener" style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:var(--bolt);font-weight:600;text-decoration:none">Open this report as its own standalone page &rarr;</a></p>
+
+    <div class="block">
+      <h2>fib(30), the number that matters most, first</h2>
+      <p class="section-note">Every language's raw speed on the same workload, before the category breakdowns below. Re-verified today: C, C++, Python, and JavaScript were all freshly compiled/run on this machine (3 runs each, averaged) — MSVC 2019 Build Tools (<code style="font-family:inherit">cl /O2</code>) for C/C++, Node v24.18.0, Python 3.13.14. Bolt's native number is carried over from the last verified run and was not re-run this pass. One real bug this catches: an earlier C run showed 0.000000s because MSVC constant-folded <code style="font-family:inherit">fib(30)</code> at compile time (a literal argument to a pure function) — fixed by passing n as a runtime argument, which is what these numbers reflect.</p>
+      <div class="verdict-strip">
+        <div class="verdict c"><div class="vlabel">C</div><div class="vvalue win">0.003 s</div></div>
+        <div class="verdict cpp"><div class="vlabel">C++</div><div class="vvalue win">0.003 s</div></div>
+        <div class="verdict bolt"><div class="vlabel">Bolt (native)</div><div class="vvalue win">0.005 s</div></div>
+        <div class="verdict"><div class="vlabel">JavaScript</div><div class="vvalue">0.007 s</div></div>
+        <div class="verdict"><div class="vlabel">Python</div><div class="vvalue">0.085 s</div></div>
+      </div>
+    </div>
+
+    <div class="block">
+      <h2>Category ratings, generated by a for-loop</h2>
+      <p class="section-note">Each card below came from calling <code style="font-family:inherit">rating_card()</code> with a list of maps — the loop that assembles each row is Bolt's own for-in loop, not a hand-copied HTML block.</p>
+      <div class="rating-grid">
+        <div class="rating-card">
+          <div class="rating-title">Raw execution speed</div>
+          <div class="rating-why">fib(30), each language's own best/normal mode, re-measured today (3 runs each, averaged): C 0.003s, C++ 0.003s, Bolt native 0.005s (carried over, not re-run this pass), JavaScript 0.007s, Python 0.085s. The big correction from the last pass: JavaScript is not 15x slower than C — on this machine (Node v24.18.0) it's only about 2&ndash;3x slower, close enough that its score moves up. Python remains genuinely the slowest here (~28x C), though also faster relative to C than previously stated. Important caveat unchanged: Bolt's number only applies via the opt-in <code style="font-family:inherit">--native</code> flag on a narrow number-only-function subset; Bolt's default bytecode VM ran this same fib(30) in about 17 seconds in the last verified test — roughly 100x slower than Python. The 10/10 reflects Bolt's best case, not its typical case.</div>
+          <div class="rating-row c winner"><span class="rating-who">C</span><span class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;&#9733;&#9733;&#9733;&#9733;&#9733;</span><span class="rating-score">10/10</span><span class="winner-badge">best</span></div>
+          <div class="rating-row cpp winner"><span class="rating-who">C++</span><span class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;&#9733;&#9733;&#9733;&#9733;&#9733;</span><span class="rating-score">10/10</span><span class="winner-badge">best</span></div>
+          <div class="rating-row bolt winner"><span class="rating-who">Bolt</span><span class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;&#9733;&#9733;&#9733;&#9733;&#9733;</span><span class="rating-score">10/10</span><span class="winner-badge">best</span></div>
+          <div class="rating-row js"><span class="rating-who">JavaScript</span><span class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;&#9733;&#9733;&#9733;&#9733;&#9734;</span><span class="rating-score">9/10</span></div>
+          <div class="rating-row python"><span class="rating-who">Python</span><span class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;&#9733;&#9734;&#9734;&#9734;&#9734;</span><span class="rating-score">6/10</span></div>
+        </div>
+        <div class="rating-card">
+          <div class="rating-title">Multiple execution backends, one project</div>
+          <div class="rating-why">Interpreter, VM, native compiler, JS transpiler, and a web server, all one codebase. The other four tie at 3: each has multiple implementations (GCC/Clang/MSVC, CPython/PyPy, V8/SpiderMonkey), but as separate outside projects, not one project offering several paths.</div>
+          <div class="rating-row bolt winner"><span class="rating-who">Bolt</span><span class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;&#9733;&#9733;&#9733;&#9733;&#9734;</span><span class="rating-score">9/10</span><span class="winner-badge">best</span></div>
+          <div class="rating-row cpp"><span class="rating-who">C++</span><span class="stars">&#9733;&#9733;&#9733;&#9734;&#9734;&#9734;&#9734;&#9734;&#9734;&#9734;</span><span class="rating-score">3/10</span></div>
+          <div class="rating-row c"><span class="rating-who">C</span><span class="stars">&#9733;&#9733;&#9733;&#9734;&#9734;&#9734;&#9734;&#9734;&#9734;&#9734;</span><span class="rating-score">3/10</span></div>
+          <div class="rating-row python"><span class="rating-who">Python</span><span class="stars">&#9733;&#9733;&#9733;&#9734;&#9734;&#9734;&#9734;&#9734;&#9734;&#9734;</span><span class="rating-score">3/10</span></div>
+          <div class="rating-row js"><span class="rating-who">JavaScript</span><span class="stars">&#9733;&#9733;&#9733;&#9734;&#9734;&#9734;&#9734;&#9734;&#9734;&#9734;</span><span class="rating-score">3/10</span></div>
+        </div>
+        <div class="rating-card">
+          <div class="rating-title">Ecosystem and libraries</div>
+          <div class="rating-why">npm and PyPI are enormous. C++ has vcpkg/Conan and decades of libraries, ahead of plain C. Bolt has import(), pyimport(), and a tiny package registry.</div>
+          <div class="rating-row js winner"><span class="rating-who">JavaScript</span><span class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;&#9733;&#9733;&#9733;&#9733;&#9733;</span><span class="rating-score">10/10</span><span class="winner-badge">best</span></div>
+          <div class="rating-row python winner"><span class="rating-who">Python</span><span class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;&#9733;&#9733;&#9733;&#9733;&#9733;</span><span class="rating-score">10/10</span><span class="winner-badge">best</span></div>
+          <div class="rating-row cpp"><span class="rating-who">C++</span><span class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;&#9733;&#9733;&#9733;&#9734;&#9734;</span><span class="rating-score">8/10</span></div>
+          <div class="rating-row c"><span class="rating-who">C</span><span class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;&#9733;&#9733;&#9734;&#9734;&#9734;</span><span class="rating-score">7/10</span></div>
+          <div class="rating-row bolt"><span class="rating-who">Bolt</span><span class="stars">&#9733;&#9733;&#9733;&#9733;&#9734;&#9734;&#9734;&#9734;&#9734;&#9734;</span><span class="rating-score">4/10</span></div>
+        </div>
+        <div class="rating-card">
+          <div class="rating-title">Learning curve</div>
+          <div class="rating-why">Bolt was deliberately designed to read like Python. C++ rates below plain C: everything C has, plus templates, multiple inheritance, and manual memory management now shared with smart-pointer ownership rules.</div>
+          <div class="rating-row python winner"><span class="rating-who">Python</span><span class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;&#9733;&#9733;&#9733;&#9733;&#9734;</span><span class="rating-score">9/10</span><span class="winner-badge">best</span></div>
+          <div class="rating-row bolt"><span class="rating-who">Bolt</span><span class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;&#9733;&#9733;&#9733;&#9734;&#9734;</span><span class="rating-score">8/10</span></div>
+          <div class="rating-row js"><span class="rating-who">JavaScript</span><span class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;&#9733;&#9734;&#9734;&#9734;&#9734;</span><span class="rating-score">6/10</span></div>
+          <div class="rating-row c"><span class="rating-who">C</span><span class="stars">&#9733;&#9733;&#9733;&#9734;&#9734;&#9734;&#9734;&#9734;&#9734;&#9734;</span><span class="rating-score">3/10</span></div>
+          <div class="rating-row cpp"><span class="rating-who">C++</span><span class="stars">&#9733;&#9733;&#9734;&#9734;&#9734;&#9734;&#9734;&#9734;&#9734;&#9734;</span><span class="rating-score">2/10</span></div>
+        </div>
+        <div class="rating-card">
+          <div class="rating-title">Game development</div>
+          <div class="rating-why">C++ is the unambiguous industry standard: Unreal, id Tech, CryEngine. JavaScript has mature 2D/3D libraries (Phaser, three.js, PixiJS). Python's PyGame is real for education/prototyping. C built the earliest engines (Doom, Quake) but has no built-in graphics — you reach for SDL. Bolt's v0.18.0 additions (sprite animation, real audio mixing via Windows MCI, basic physics helpers, a scene/state stack) closed the "no sprite animation, no audio mixing, no physics" gap; v0.19.0 replaced tkinter's software canvas with a real GPU-accelerated SDL2 renderer on Windows (tkinter kept as an automatic fallback) — the same rendering technology C/PyGame's own SDL path uses. Still no community, no shipped games, no physics *engine* (just small building-block functions), and no scene *graph* — the remaining gap to PyGame, let alone C++'s engines, is maturity, tooling, and usage, not raw rendering technology anymore.</div>
+          <div class="rating-row cpp winner"><span class="rating-who">C++</span><span class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;&#9733;&#9733;&#9733;&#9733;&#9733;</span><span class="rating-score">10/10</span><span class="winner-badge">best</span></div>
+          <div class="rating-row js"><span class="rating-who">JavaScript</span><span class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;&#9733;&#9734;&#9734;&#9734;&#9734;</span><span class="rating-score">6/10</span></div>
+          <div class="rating-row python"><span class="rating-who">Python</span><span class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;&#9734;&#9734;&#9734;&#9734;&#9734;</span><span class="rating-score">5/10</span></div>
+          <div class="rating-row c"><span class="rating-who">C</span><span class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;&#9734;&#9734;&#9734;&#9734;&#9734;</span><span class="rating-score">5/10</span></div>
+          <div class="rating-row bolt"><span class="rating-who">Bolt</span><span class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;&#9734;&#9734;&#9734;&#9734;&#9734;</span><span class="rating-score">5/10</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="block">
+      <h2>fib(30), one bar per language</h2>
+      <p class="section-note">Re-verified today: C, C++, Python, and JavaScript's numbers are freshly measured on this machine, 3 runs each averaged. Bolt (native)'s bar is carried over from the last verified run, not re-run this pass, and is native-execution-only (compile time excluded) on a narrow number-only-function subset via <code style="font-family:inherit">--native</code> — not its default engine, which is dramatically slower (see the caveat above).</p>
+      <div class="chart">
+        <div class="bar-row"><div class="bar-label"><span>Python</span><span class="time">0.085 s</span></div><div class="bar-track"><div class="bar-fill python" style="width:100%"><span class="bar-value">Python &middot; 0.085 s</span></div></div></div>
+        <div class="bar-row"><div class="bar-label"><span>JavaScript</span><span class="time">0.007 s</span></div><div class="bar-track"><div class="bar-fill js" style="width:8%"><span class="bar-value">JavaScript &middot; 0.007 s</span></div></div></div>
+        <div class="bar-row"><div class="bar-label"><span>Bolt (native)</span><span class="time">0.005 s</span></div><div class="bar-track"><div class="bar-fill bolt" style="width:6%"><span class="bar-value">Bolt (native) &middot; 0.005 s</span></div></div></div>
+        <div class="bar-row"><div class="bar-label"><span>C++</span><span class="time">0.003 s</span></div><div class="bar-track"><div class="bar-fill cpp" style="width:4%"><span class="bar-value">C++ &middot; 0.003 s</span></div></div></div>
+        <div class="bar-row"><div class="bar-label"><span>C</span><span class="time">0.003 s</span></div><div class="bar-track"><div class="bar-fill c" style="width:4%"><span class="bar-value">C &middot; 0.003 s</span></div></div></div>
+      </div>
+    </div>
+
+    <div class="block">
+      <h2>Version history, built from a Bolt list</h2>
+      <div class="version-timeline">
+        <div class="version-item"><span class="version-tl-badge">v0.7.0</span><div class="version-desc">Added the built-in serve() web server.</div></div>
+        <div class="version-item"><span class="version-tl-badge">v0.8.0</span><div class="version-desc">Grew the standard library (math, string, tensor utilities).</div></div>
+        <div class="version-item"><span class="version-tl-badge">v0.9.0</span><div class="version-desc">Native compiler gained math functions; JS transpiler's tensor gap closed.</div></div>
+        <div class="version-item"><span class="version-tl-badge">v0.10.0</span><div class="version-desc">A real import() module system plus a small local package registry.</div></div>
+        <div class="version-item"><span class="version-tl-badge">v0.11.0</span><div class="version-desc">pyimport(): a Python interop bridge into Python's real standard library.</div></div>
+        <div class="version-item"><span class="version-tl-badge">v0.12.0</span><div class="version-desc">window(): a real drawable window, keyboard input, and a game loop — first step toward game development.</div></div>
+        <div class="version-item"><span class="version-tl-badge">v0.13.0</span><div class="version-desc">draw_image(), collision detection, and beep()/play_sound() — sprites, collision, and sound for game dev.</div></div>
+        <div class="version-item"><span class="version-tl-badge">v0.14.0</span><div class="version-desc">Fixed --native on MSVC-only Windows: was hardcoded to gcc (crashed), and had a real symbol-collision bug. Native execution now genuinely matches C/C++ speed.</div></div>
+        <div class="version-item"><span class="version-tl-badge">v0.15.0</span><div class="version-desc">Fixed a real VM bug: deep recursion crashed with RecursionError at ~1000 levels (now handles 50,000+). A correctness fix, not a speed win — fib(30) on the default engine is still ~17s.</div></div>
+        <div class="version-item"><span class="version-tl-badge">v0.16.0</span><div class="version-desc">mouse_x()/mouse_y()/mouse_down(), line(), and stop_sound() — a real bare-metal 2D toolkit checklist for game dev.</div></div>
+        <div class="version-item"><span class="version-tl-badge">v0.17.0</span><div class="version-desc">Previous release.</div></div>
+        <div class="version-item current"><span class="version-tl-badge">v0.19.0</span><div class="version-desc">Real GPU-accelerated rendering: a new SDL2 backend takes over every drawing/sprite builtin on Windows (tkinter kept as an automatic fallback), a ctypes pointer-truncation crash and a wrong-by-default color channel order found and fixed along the way. Current release.</div></div>
+        <div class="version-item"><span class="version-tl-badge">v0.18.0</span><div class="version-desc">Sprite animation, audio channel mixing, basic 2D physics, and a scene/state stack for games — plus a real cross-module closure bug found and fixed in the VM along the way.</div></div>
+      </div>
+    </div>
+
+    <div class="source-note">
+      <strong>This page is written with Bolt.</strong> Everything above — the ratings grid, the chart, the version timeline — came out of the <code style="font-family:inherit">print()</code> call at the bottom of the script below, run through the real Bolt interpreter (<code style="font-family:inherit">python cli.py generate_page.bo</code>). No HTML was hand-written above; this script produced it.
+    </div>
+    <div class="source-panel">
+      <div class="source-panel-head"><span class="name">generate_page.bo</span><span class="cmd">python cli.py generate_page.bo</span></div>
+      <pre><code><span class="com"># generate_page.bo — generates the HTML body for this page.</span>
+<span class="com"># Every rating card, bar, and version entry below is built by</span>
+<span class="com"># Bolt functions and loops, then printed as one HTML document.</span>
+
+<span class="kw">func</span> <span class="fn">star_bar</span>(score) {
+    <span class="kw">let</span> out = <span class="str">""</span>
+    <span class="kw">let</span> i = <span class="num">0</span>
+    <span class="kw">while</span> i &lt; score {
+        out = out + <span class="str">"&amp;#9733;"</span>
+        i = i + <span class="num">1</span>
+    }
+    <span class="kw">let</span> off = <span class="num">10</span> - score
+    <span class="kw">let</span> j = <span class="num">0</span>
+    <span class="kw">while</span> j &lt; off {
+        out = out + <span class="str">"&amp;#9734;"</span>
+        j = j + <span class="num">1</span>
+    }
+    <span class="kw">return</span> out
+}
+
+<span class="kw">func</span> <span class="fn">rating_row</span>(who, cls, score, best) {
+    <span class="kw">let</span> badge = <span class="str">""</span>
+    <span class="kw">if</span> best { badge = <span class="str">"&lt;span class=\"winner-badge\"&gt;best&lt;/span&gt;"</span> }
+    <span class="kw">let</span> winner_class = <span class="str">""</span>
+    <span class="kw">if</span> best { winner_class = <span class="str">" winner"</span> }
+    <span class="kw">let</span> head = <span class="str">"&lt;div class=\"rating-row "</span> + cls + winner_class + <span class="str">"\"&gt;..."</span>
+    <span class="kw">let</span> mid = <span class="str">"&lt;span class=\"stars\"&gt;"</span> + <span class="fn">star_bar</span>(score) + <span class="str">"&lt;/span&gt;"</span>
+    <span class="kw">let</span> tail = <span class="str">"&lt;span class=\"rating-score\"&gt;"</span> + <span class="fn">str</span>(score) + <span class="str">"/10&lt;/span&gt;"</span> + badge
+    <span class="kw">return</span> head + mid + tail
+}
+
+<span class="kw">func</span> <span class="fn">rating_card</span>(title, why, rows) {
+    <span class="kw">let</span> body = <span class="str">"&lt;div class=\"rating-card\"&gt;..."</span> + title + why
+    <span class="kw">for</span> row <span class="kw">in</span> rows {
+        body = body + <span class="fn">rating_row</span>(row[<span class="str">"who"</span>], row[<span class="str">"cls"</span>], row[<span class="str">"score"</span>], row[<span class="str">"best"</span>])
+    }
+    <span class="kw">return</span> body + <span class="str">"&lt;/div&gt;"</span>
+}
+
+<span class="kw">func</span> <span class="fn">bar_row</span>(label, cls, value, width) {
+    <span class="kw">let</span> head = <span class="str">"&lt;div class=\"bar-row\"&gt;..."</span> + label + value
+    <span class="kw">let</span> fill = <span class="str">"&lt;div class=\"bar-fill "</span> + cls + <span class="str">"\" style=\"width:"</span> + <span class="fn">str</span>(width) + <span class="str">"%\"&gt;"</span>
+    <span class="kw">return</span> head + fill + <span class="str">"...&lt;/div&gt;"</span>
+}
+
+<span class="kw">let</span> versions = [
+    {<span class="str">"badge"</span>: <span class="str">"v0.7.0"</span>, <span class="str">"desc"</span>: <span class="str">"Added the built-in serve() web server."</span>, <span class="str">"current"</span>: <span class="kw">false</span>}
+    <span class="com"># ... v0.8.0 through v0.19.0 ...</span>
+]
+<span class="kw">let</span> html = <span class="str">""</span>
+<span class="kw">for</span> v <span class="kw">in</span> versions {
+    html = html + <span class="fn">version_item</span>(v[<span class="str">"badge"</span>], v[<span class="str">"desc"</span>], v[<span class="str">"current"</span>])
+}
+
+<span class="fn">print</span>(html)  <span class="com"># the real Bolt interpreter prints this page's HTML</span></code></pre>
+    </div>
+  </div>
+</div>
+
+<!-- ============ DOWNLOAD ============ -->
+<div class="panel" id="panel-download">
+  <div class="section" style="padding-top:52px;max-width:820px">
+    <p class="eyebrow">Get Bolt Studio</p>
+    <h1 style="font-family:'IBM Plex Mono',monospace;font-size:clamp(26px,4vw,36px);margin:0 0 28px;letter-spacing:-0.01em;">Download the editor</h1>
+
+    <div class="download-card">
+      <div class="os-icon">&#8862; Windows 10 / 11 &middot; 64-bit</div>
+      <h3>Bolt Studio v0.4.1</h3>
+      <p>A rebranded VSCodium build with Bolt syntax highlighting, the Bolt Dark theme, a built-in Run &amp; Preview panel, and an AI assistant (bring your own free OpenRouter key) baked in.</p>
+      <a class="download-btn" href="https://github.com/teo12342/Language/releases/download/bolt-studio-v0.4.1/BoltStudio-Setup-win32-x64.exe">&#8681; Download for Windows (.exe)</a>
+      <div class="download-sub">~153 MB &middot; unsigned build &middot; also on <a href="https://github.com/teo12342/Language/releases/tag/bolt-studio-v0.4.1" style="color:inherit" target="_blank" rel="noopener">GitHub Releases</a></div>
+    </div>
+
+    <div class="block">
+      <h2>Install</h2>
+      <div class="steps">
+        <div class="step"><div class="stepnum">01</div><h4>Download</h4><p>Get <code>BoltStudio-Setup-win32-x64.exe</code> above.</p></div>
+        <div class="step"><div class="stepnum">02</div><h4>Run the installer</h4><p>Double-click it and follow the setup wizard — no unzipping, nothing to extract.</p></div>
+        <div class="step"><div class="stepnum">03</div><h4>Launch</h4><p>Bolt Studio opens from the Start Menu (or the desktop shortcut, if you opted in) once setup finishes.</p></div>
+      </div>
+      <div class="warn-note"><strong>Note:</strong> this build isn't code-signed, so Windows SmartScreen will likely show a warning when you run the installer. Click "More info" then "Run anyway" to proceed.</div>
+    </div>
+
+    <div class="block">
+      <h2>Prefer the language alone?</h2>
+      <p class="section-note">No editor needed — <code>python cli.py script.bo</code> runs any <code>.bo</code> file directly. Clone the repo: <code>git clone https://github.com/teo12342/Language</code>.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ============ COMING SOON PANELS ============ -->
+<div class="panel" id="panel-docs"><div class="soon-panel"><div class="soon-icon">Coming soon</div><h2>Documentation</h2><p>A proper language reference and guide is planned. For now, the README in the repo covers syntax, the standard library, and every built-in in depth.</p></div></div>
+<div class="panel" id="panel-packages"><div class="soon-panel"><div class="soon-icon">Coming soon</div><h2>Packages</h2><p>Bolt has a small local package registry (<code style="font-family:inherit">import()</code>) today. A real public registry for sharing Bolt packages is planned.</p></div></div>
+<div class="panel" id="panel-community"><div class="soon-panel"><div class="soon-icon">Coming soon</div><h2>Community</h2><p>Bolt is actively developed in the open. A place to discuss, ask questions, and follow along is planned.</p></div></div>
+
+<footer>
+  <span>Bolt Language &middot; MIT licensed</span>
+  <span><a href="https://github.com/teo12342/Language" target="_blank" rel="noopener">github.com/teo12342/Language</a></span>
+</footer>
+
+<script>
+function showTab(name) {
+  document.querySelectorAll('.panel').forEach(function(p) { p.classList.remove('active'); });
+  document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+  var panel = document.getElementById('panel-' + name);
+  if (panel) panel.classList.add('active');
+  var btn = document.querySelector('.tab-btn[data-tab="' + name + '"]');
+  if (btn && !btn.classList.contains('soon')) btn.classList.add('active');
+  else if (btn) btn.classList.add('active');
+  window.scrollTo({ top: 0, behavior: 'instant' });
+}
+</script>
+
+</body>
+</html>
