@@ -89,7 +89,15 @@ jobs:
           AppId={{B0175700-D105-4000-8000-000000000001}}
           AppName=Bolt Studio
           AppVersion=${VERSION}
-          AppPublisher=Bolt
+          AppPublisher=Bolt Language Project
+          AppPublisherURL=https://bolt-lang.vercel.app
+          AppSupportURL=https://github.com/teo12342/Language
+          AppUpdatesURL=https://github.com/teo12342/Language/releases
+          AppCopyright=Copyright (C) 2026 Bolt Language Project
+          VersionInfoCompany=Bolt Language Project
+          VersionInfoProductName=Bolt Studio
+          VersionInfoDescription=Bolt Studio Setup
+          VersionInfoCopyright=Copyright (C) 2026 Bolt Language Project
           DefaultDirName={autopf}\Bolt Studio
           DefaultGroupName=Bolt Studio
           OutputDir=..
