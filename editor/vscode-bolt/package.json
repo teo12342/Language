@@ -1,13 +1,15 @@
 {
   "name": "bolt-lang",
   "displayName": "Bolt Language",
-  "description": "Syntax highlighting, language configuration, and a Bolt-branded color theme for the Bolt programming language (.bo files).",
-  "version": "0.2.0",
+  "description": "Syntax highlighting, language configuration, a Bolt-branded color theme, and a built-in app previewer for the Bolt programming language (.bo files) and beyond.",
+  "version": "0.3.0",
   "publisher": "bolt-lang",
   "engines": {
     "vscode": "^1.75.0"
   },
   "categories": ["Programming Languages", "Themes"],
+  "main": "./extension.js",
+  "activationEvents": [],
   "contributes": {
     "languages": [
       {
@@ -33,6 +35,37 @@
         "label": "Bolt Dark",
         "uiTheme": "vs-dark",
         "path": "./themes/bolt-dark-color-theme.json"
+      }
+    ],
+    "commands": [
+      {
+        "command": "bolt.previewFile",
+        "title": "Bolt: Run & Preview",
+        "icon": "$(open-preview)"
+      },
+      {
+        "command": "bolt.openPreviewPanel",
+        "title": "Bolt: Open Preview Panel (any URL)"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "bolt.previewFile",
+          "group": "navigation",
+          "when": "resourceLangId == bolt || resourceLangId == python || resourceLangId == javascript || resourceLangId == typescript || resourceLangId == html"
+        }
+      ],
+      "commandPalette": [
+        { "command": "bolt.previewFile" },
+        { "command": "bolt.openPreviewPanel" }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "bolt.previewFile",
+        "key": "ctrl+alt+p",
+        "when": "editorTextFocus"
       }
     ]
   }
