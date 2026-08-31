@@ -16,5 +16,21 @@
   "urlProtocol": "bolt-studio",
   "reportIssueUrl": "https://github.com/teo12342/Language/issues",
   "quality": "stable",
-  "extensionsGallery": {}
+  "extensionsGallery": {},
+  "defaultColorTheme": "Bolt Dark",
+  "configurationDefaults": {
+    "workbench.colorTheme": "Bolt Dark",
+    "workbench.startupEditor": "none",
+    "workbench.tips.enabled": false,
+    "workbench.layoutControl.enabled": false,
+    "window.titleBarStyle": "custom",
+    "editor.minimap.enabled": false,
+    "breadcrumbs.enabled": false,
+    "editor.cursorBlinking": "smooth",
+    "editor.smoothScrolling": true,
+    "workbench.list.smoothScrolling": true,
+    "editor.fontLigatures": true,
+    "editor.guides.indentation": true,
+    "workbench.reduceMotion": "off"
+  }
 }
