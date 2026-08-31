@@ -31,6 +31,10 @@
     "workbench.list.smoothScrolling": true,
     "editor.fontLigatures": true,
     "editor.guides.indentation": true,
-    "workbench.reduceMotion": "off"
+    "workbench.reduceMotion": "off",
+    "window.menuBarVisibility": "compact",
+    "workbench.activityBar.location": "top",
+    "editor.stickyScroll.enabled": true,
+    "workbench.tree.enableStickyScroll": true
   }
 }
