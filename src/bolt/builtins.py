@@ -484,6 +484,8 @@ class _BoltWindow:
         self.height = int(height)
         self.closed = False
         self._last_tick = None
+        self.camera_x = 0.0
+        self.camera_y = 0.0
 
         self.root = tk.Tk()
         self.root.title(str(title))
@@ -564,9 +566,29 @@ def _clear(win, color="black"):
     return None
 
 
+def _apply_camera(win, x, y):
+    """Offsets a world-space (x, y) by the window's camera position, so
+    set_camera(win, cx, cy) scrolls every subsequent rect/circle/line/
+    draw_image/draw_sprite call without scripts doing the subtraction
+    themselves. draw_text is deliberately excluded (HUD/UI stays in
+    screen space) - the same convention most 2D engines use. Pure and
+    windowless so it's testable without ever opening a real window.
+    """
+    return x - getattr(win, "camera_x", 0.0), y - getattr(win, "camera_y", 0.0)
+
+
+def _set_camera(win, x, y):
+    if not isinstance(win, _WINDOW_TYPES):
+        raise BoltRuntimeError("set_camera() expects a window handle from window()")
+    win.camera_x = float(x)
+    win.camera_y = float(y)
+    return None
+
+
 def _rect(win, x, y, w, h, color="white"):
     if not _require_open_window(win, "rect"):
         return None
+    x, y = _apply_camera(win, x, y)
     if isinstance(win, sdl_backend.SDLWindow):
         win.rect(x, y, w, h, color)
         return None
@@ -577,6 +599,7 @@ def _rect(win, x, y, w, h, color="white"):
 def _circle(win, x, y, r, color="white"):
     if not _require_open_window(win, "circle"):
         return None
+    x, y = _apply_camera(win, x, y)
     if isinstance(win, sdl_backend.SDLWindow):
         win.circle(x, y, r, color)
         return None
@@ -587,6 +610,8 @@ def _circle(win, x, y, r, color="white"):
 def _line(win, x1, y1, x2, y2, color="white", width=1):
     if not _require_open_window(win, "line"):
         return None
+    x1, y1 = _apply_camera(win, x1, y1)
+    x2, y2 = _apply_camera(win, x2, y2)
     if isinstance(win, sdl_backend.SDLWindow):
         win.line(x1, y1, x2, y2, color, width)
         return None
@@ -615,6 +640,7 @@ def _draw_image(win, path, x, y):
     """
     if not _require_open_window(win, "draw_image"):
         return None
+    x, y = _apply_camera(win, x, y)
     if isinstance(win, sdl_backend.SDLWindow):
         win.draw_image(path, x, y)
         return None
@@ -843,12 +869,58 @@ def _draw_sprite(win, sheet, frame_index, x, y):
         raise BoltRuntimeError(
             f"sprite frame index {frame_index} out of range (sheet has {sheet.count} frames)"
         )
+    x, y = _apply_camera(win, x, y)
     if isinstance(win, sdl_backend.SDLWindow):
         col = frame_index % sheet.cols
         row = frame_index // sheet.cols
         win.draw_sprite_frame(sheet.path, sheet.frame_w, sheet.frame_h, col, row, x, y)
         return None
     win.canvas.create_image(x, y, image=sheet._tk_frame_image(frame_index), anchor="nw")
+    return None
+
+
+def _load_tileset(path, tile_w, tile_h):
+    """A tileset is structurally identical to a sprite sheet - a grid of
+    equal-sized cells sliced from one source image - so this reuses
+    _BoltSpriteSheet directly rather than a parallel implementation.
+    """
+    return _load_spritesheet(path, tile_w, tile_h)
+
+
+def _draw_tile(win, tileset, tile_index, x, y):
+    return _draw_sprite(win, tileset, tile_index, x, y)
+
+
+def _tilemap_placements(grid, tile_w, tile_h, offset_x=0, offset_y=0):
+    """Pure grid-to-placements logic for draw_tilemap(), factored out so
+    it's unit-testable without a window: yields (tile_index, x, y) for
+    every cell in `grid` (a list of rows, each a list of tile indices)
+    whose index is >= 0 - a negative index marks an empty cell, skipped
+    rather than drawn.
+    """
+    placements = []
+    for row_idx, row in enumerate(grid):
+        if not isinstance(row, list):
+            raise BoltRuntimeError("draw_tilemap() expects a list of rows (each a list of tile indices)")
+        for col_idx, tile_index in enumerate(row):
+            tile_index = int(tile_index)
+            if tile_index < 0:
+                continue
+            placements.append((tile_index, offset_x + col_idx * tile_w, offset_y + row_idx * tile_h))
+    return placements
+
+
+def _draw_tilemap(win, tileset, grid, tile_w, tile_h, offset_x=0, offset_y=0):
+    """Draws a whole level laid out as a 2-D list of tile indices in one
+    call - e.g. `draw_tilemap(win, tiles, [[0,0,1],[0,-1,1]], 16, 16)` -
+    instead of a script hand-writing the row/col loop itself every time.
+    Respects the window's camera (via draw_tile -> draw_sprite), so a
+    tilemap pans correctly alongside everything else set_camera() moves.
+    """
+    if not isinstance(grid, list):
+        raise BoltRuntimeError("draw_tilemap() expects a list of rows (each a list of tile indices)")
+    for tile_index, x, y in _tilemap_placements(grid, tile_w, tile_h, offset_x, offset_y):
+        _draw_tile(win, tileset, tile_index, x, y)
     return None
 
 
@@ -1170,6 +1242,10 @@ def make_builtins(call_fn=None) -> dict[str, object]:
         "line": _line,
         "draw_text": _draw_text,
         "draw_image": _draw_image,
+        "set_camera": _set_camera,
+        "load_tileset": _load_tileset,
+        "draw_tile": _draw_tile,
+        "draw_tilemap": _draw_tilemap,
         "key": _key,
         "mouse_x": _mouse_x,
         "mouse_y": _mouse_y,

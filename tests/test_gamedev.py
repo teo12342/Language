@@ -1,6 +1,13 @@
 from pathlib import Path
 
-from bolt.builtins import _load_spritesheet, _probe_image_size, _sprite_frame_count
+from bolt.builtins import (
+    _apply_camera,
+    _load_spritesheet,
+    _load_tileset,
+    _probe_image_size,
+    _sprite_frame_count,
+    _tilemap_placements,
+)
 from bolt import sdl_backend
 
 from .test_stdlib import run_and_capture
@@ -31,6 +38,57 @@ def test_sdl_backend_pack_color_matches_verified_channel_order():
     # (alpha ended up 0). This locks that finding in as a regression test.
     packed = sdl_backend._pack_color("#e2895f")
     assert packed == 0xFF5F89E2  # (A=255)<<24 | (B=0x5F)<<16 | (G=0x89)<<8 | R=0xE2
+
+
+
+class _FakeWindow:
+    """A minimal stand-in carrying only camera_x/camera_y, so camera and
+    tilemap logic can be tested without ever opening a real window (SDL2
+    or tkinter) - this sandbox has no display."""
+
+    def __init__(self, camera_x=0.0, camera_y=0.0):
+        self.camera_x = camera_x
+        self.camera_y = camera_y
+
+
+def test_apply_camera_offsets_by_window_camera_position():
+    win = _FakeWindow(camera_x=50, camera_y=30)
+    assert _apply_camera(win, 100, 80) == (50, 50)
+
+
+def test_apply_camera_defaults_to_no_offset():
+    class NoCamera:
+        pass
+
+    assert _apply_camera(NoCamera(), 10, 20) == (10, 20)
+
+
+def test_apply_camera_handles_negative_camera_position():
+    win = _FakeWindow(camera_x=-20, camera_y=10)
+    assert _apply_camera(win, 0, 0) == (20, -10)
+
+
+def test_load_tileset_reuses_spritesheet_logic():
+    sheet = _load_tileset(str(_REPO_ROOT / "examples" / "run_sheet.png"), 16, 16)
+    assert (sheet.cols, sheet.rows, sheet.count) == (4, 1, 4)
+
+
+def test_tilemap_placements_computes_grid_positions_and_skips_negative_cells():
+    grid = [
+        [0, 0, 1],
+        [0, -1, 1],
+    ]
+    placements = _tilemap_placements(grid, 16, 16)
+    assert placements == [
+        (0, 0, 0), (0, 16, 0), (1, 32, 0),
+        (0, 0, 16), (1, 32, 16),
+    ]
+
+
+def test_tilemap_placements_applies_offset():
+    grid = [[0]]
+    placements = _tilemap_placements(grid, 16, 16, offset_x=100, offset_y=200)
+    assert placements == [(0, 100, 200)]
 
 
 

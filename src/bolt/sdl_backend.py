@@ -193,6 +193,8 @@ class SDLWindow:
         self.closed = False
         self._last_tick = None
         self._presented_once = False
+        self.camera_x = 0.0
+        self.camera_y = 0.0
 
         self.win = _sdl2.SDL_CreateWindow(
             str(title).encode("utf-8"),

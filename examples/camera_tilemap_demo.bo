@@ -1,0 +1,30 @@
+# camera_tilemap_demo.bo — a small scrolling level built from a tilemap,
+# demonstrating set_camera()/load_tileset()/draw_tilemap() together.
+# A tile index of -1 marks an empty cell (skipped, not drawn).
+
+let win = window(480, 320, "Camera & Tilemap Demo")
+let tiles = load_tileset("examples/run_sheet.png", 16, 16)
+
+let level = [
+    [0, 0, 0, -1, 0, 0, 0, 0],
+    [0, -1, -1, -1, -1, -1, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0]
+]
+
+let player_x = 100
+let camera_x = 0
+
+while tick(win, 60) {
+    if key(win, "right") { player_x = player_x + 4 }
+    if key(win, "left") { player_x = player_x - 4 }
+
+    # keep the player roughly centered by scrolling the camera to follow
+    camera_x = player_x - 240
+    set_camera(win, camera_x, 0)
+
+    clear(win, "#171410")
+    draw_tilemap(win, tiles, level, 16, 16)
+    rect(win, player_x, 120, 16, 16, "#e2895f")
+
+    if key(win, "escape") { close_window(win) }
+}

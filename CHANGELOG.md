@@ -2,6 +2,48 @@
 
 All notable changes to Bolt, by version.
 
+## v0.20.0
+
+Real level-building capability for the game-dev toolkit: a camera/
+viewport and tilemap rendering, both wired through the existing SDL2/
+tkinter drawing pipeline so they work identically on either backend.
+
+- **Camera/viewport**: `set_camera(win, x, y)` sets a window's camera
+  position; `rect()`, `circle()`, `line()`, `draw_image()`, and
+  `draw_sprite()` now draw in world space, offset automatically by the
+  camera before hitting either backend. `draw_text()` is deliberately
+  left in screen space (HUD/UI convention, same as most 2D engines).
+  Implemented as a single pure `_apply_camera(win, x, y)` helper shared
+  by every drawing builtin, rather than duplicating the offset math per
+  function or per backend - verified with unit tests covering a set
+  camera, no camera set (defaults to zero offset), and a negative
+  camera position, all independent of any real window.
+- **Tilemaps**: `load_tileset(path, tile_w, tile_h)` (identical to
+  `load_spritesheet()` - a tileset is structurally the same grid-sliced
+  image) plus `draw_tile(win, tileset, tile_index, x, y)` and
+  `draw_tilemap(win, tileset, grid, tile_w, tile_h, offset_x=0,
+  offset_y=0)`, which draws an entire level from one Bolt list-of-lists
+  in a single call instead of a script hand-writing the row/col loop
+  every time. A tile index of `-1` marks an empty cell and is skipped.
+  The row/col-to-pixel math is factored into a pure, windowless
+  `_tilemap_placements()` helper, verified with real tests for grid
+  layout, offset, and empty-cell skipping - not just "does it crash."
+  Tilemaps pan correctly with the camera for free, since `draw_tile()`
+  routes through the same `draw_sprite()` path `set_camera()` affects.
+- New example: `examples/camera_tilemap_demo.bo` - a scrolling level
+  where the camera follows the player horizontally over a tilemap laid
+  out as a plain nested list, verified to parse, type-check, and
+  compile cleanly.
+- 9 new tests (129 total, all passing): camera offset (set, unset,
+  negative), tileset loading reusing the verified spritesheet logic,
+  and tilemap placement math (grid layout, offset, `-1` skip) - all
+  pure-function tests that don't require an actual window, so they run
+  identically in CI or any headless environment.
+- Honest scope: this is a camera and a tile-grid renderer, not a scene
+  graph or tilemap *editor* - levels are still authored as plain Bolt
+  list literals, and there's no tileset/level file format (Tiled `.tmx`
+  or similar) to import from yet.
+
 ## v0.19.0
 
 Real GPU-accelerated rendering for the game-dev builtins, driven by a
