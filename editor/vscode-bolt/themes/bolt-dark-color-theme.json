@@ -23,14 +23,20 @@
 
     "activityBar.background": "#13110d",
     "activityBar.foreground": "#e2895f",
-    "activityBar.inactiveForeground": "#6f6656",
+    "activityBar.inactiveForeground": "#4a4335",
+    "activityBar.border": "#13110d",
+    "activityBar.activeBackground": "#211d17",
+    "activityBar.activeBorder": "#e2895f",
+    "activityBar.activeFocusBorder": "#e2895f",
     "activityBarBadge.background": "#e2895f",
     "activityBarBadge.foreground": "#171410",
 
     "sideBar.background": "#1c1812",
     "sideBar.foreground": "#c9bfa8",
+    "sideBar.border": "#3a3327",
     "sideBarTitle.foreground": "#ece5d6",
     "sideBarSectionHeader.background": "#1c1812",
+    "sideBarSectionHeader.border": "#3a3327",
 
     "titleBar.activeBackground": "#171410",
     "titleBar.activeForeground": "#ece5d6",
