@@ -185,11 +185,20 @@ function activate(context) {
     if (url) openPreview(url, 'Bolt Preview');
   }
 
+  // A persistent, always-visible status bar button - no keybinding or menu
+  // hunting required, just click it.
+  const statusBarButton = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
+  statusBarButton.text = '$(open-preview) Preview';
+  statusBarButton.tooltip = 'Bolt: Run & Preview the current file';
+  statusBarButton.command = 'bolt.previewFile';
+  statusBarButton.show();
+
   context.subscriptions.push(
     vscode.commands.registerCommand('bolt.previewFile', previewFile),
     vscode.commands.registerCommand('bolt.openPreviewPanel', openPreviewPanel),
     { dispose: killChild },
-    output
+    output,
+    statusBarButton
   );
 }
 
