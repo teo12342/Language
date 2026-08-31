@@ -68,17 +68,68 @@ jobs:
           NODE_OPTIONS: "--max-old-space-size=8192"
         run: ./build.sh
 
+      - name: Install Inno Setup
+        # VSCodium's plain build.sh only produces the portable app
+        # (VSCode-win32-x64/Bolt Studio.exe), not an installer - confirmed
+        # by an actual failed run here (build-bolt-studio-v0.2.0) whose logs
+        # showed only Bolt Studio.exe and inno_updater.exe present, no
+        # Setup*.exe. Rather than fight VSCodium's own internal packaging
+        # scripts, wrap the real, working portable build in our own Inno
+        # Setup installer - windows-2022 runners ship Chocolatey, so this
+        # needs no extra setup-action dependency.
+        run: choco install innosetup -y --no-progress
+
+      - name: Write Inno Setup script
+        shell: bash
+        run: |
+          set -ex
+          VERSION="${GITHUB_REF_NAME#bolt-studio-v}"
+          cat > vscodium-src/bolt-studio.iss <<EOF
+          [Setup]
+          AppId={{B0175700-D105-4000-8000-000000000001}}
+          AppName=Bolt Studio
+          AppVersion=${VERSION}
+          AppPublisher=Bolt
+          DefaultDirName={autopf}\Bolt Studio
+          DefaultGroupName=Bolt Studio
+          OutputDir=..
+          OutputBaseFilename=BoltStudio-Setup-win32-x64
+          Compression=lzma2
+          SolidCompression=yes
+          ArchitecturesAllowed=x64
+          ArchitecturesInstallIn64BitMode=x64
+          DisableProgramGroupPage=yes
+          UninstallDisplayIcon={app}\Bolt Studio.exe
+
+          [Files]
+          Source: "VSCode-win32-x64\*"; DestDir: "{app}"; Flags: recursesubdirs ignoreversion
+
+          [Icons]
+          Name: "{group}\Bolt Studio"; Filename: "{app}\Bolt Studio.exe"
+          Name: "{commondesktop}\Bolt Studio"; Filename: "{app}\Bolt Studio.exe"; Tasks: desktopicon
+          Name: "{group}\Uninstall Bolt Studio"; Filename: "{uninstallexe}"
+
+          [Tasks]
+          Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription: "Additional icons:"
+
+          [Run]
+          Filename: "{app}\Bolt Studio.exe"; Description: "Launch Bolt Studio"; Flags: nowait postinstall skipifsilent
+          EOF
+          # No custom setup icon: bolt-lang ships only SVG icons and Inno
+          # Setup needs a real .ico, so this installer uses Inno's default.
+          cat vscodium-src/bolt-studio.iss
+
+      - name: Compile the installer
+        shell: cmd
+        run: '"C:\Program Files (x86)\Inno Setup 6\ISCC.exe" vscodium-src\bolt-studio.iss'
+
       - name: Locate the installer exe
         run: |
           set -ex
-          # VSCodium's build.sh already runs Inno Setup as part of a normal
-          # Windows build and produces a single-file installer (not just the
-          # portable VSCode-win32-x64/ folder) - find it instead of zipping
-          # the raw folder, so users get a "download one exe, run it" flow.
-          SETUP_EXE=$(find vscodium-src -maxdepth 4 -iname "*Setup*x64*.exe" ! -iname "*User*" | head -n1)
+          SETUP_EXE=$(find . -maxdepth 2 -iname "BoltStudio-Setup-win32-x64.exe" | head -n1)
           if [ -z "$SETUP_EXE" ]; then
-            echo "::error::No Inno Setup installer .exe found under vscodium-src - check that VSCODE_ARCH/OS_NAME triggered the Windows system-setup target."
-            find vscodium-src -maxdepth 4 -iname "*.exe"
+            echo "::error::Inno Setup did not produce BoltStudio-Setup-win32-x64.exe - check the 'Compile the installer' step's output."
+            find . -maxdepth 2 -iname "*.exe"
             exit 1
           fi
           cp "$SETUP_EXE" BoltStudio-Setup-win32-x64.exe
