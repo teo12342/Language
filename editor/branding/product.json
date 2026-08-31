@@ -33,7 +33,7 @@
     "editor.guides.indentation": true,
     "workbench.reduceMotion": "off",
     "window.menuBarVisibility": "compact",
-    "workbench.activityBar.location": "top",
+    "workbench.activityBar.location": "default",
     "editor.stickyScroll.enabled": true,
     "workbench.tree.enableStickyScroll": true
   }
