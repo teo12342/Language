@@ -193,6 +193,54 @@ function activate(context) {
     panel.webview.html = previewHtml(url, title);
   }
 
+  const CONSOLE_HTML = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  html, body { margin: 0; height: 100%; background: #171410; color: #ece5d6; }
+  #head { padding: 6px 10px; background: #211d17; border-bottom: 1px solid #3a3327; font-family: -apple-system, "Segoe UI", sans-serif; font-size: 11.5px; color: #a89d86; }
+  #out { margin: 0; padding: 10px 12px; height: calc(100% - 27px); overflow-y: auto; font-family: ui-monospace, Consolas, monospace; font-size: 13px; white-space: pre-wrap; box-sizing: border-box; }
+  .exit-ok { color: #7bc98c; }
+  .exit-fail { color: #e2895f; }
+</style>
+</head>
+<body>
+  <div id="head">Running…</div>
+  <pre id="out"></pre>
+  <script>
+    const outEl = document.getElementById('out');
+    const headEl = document.getElementById('head');
+    window.addEventListener('message', (event) => {
+      const msg = event.data;
+      if (msg.type === 'append') {
+        outEl.textContent += msg.text;
+        outEl.scrollTop = outEl.scrollHeight;
+      } else if (msg.type === 'done') {
+        headEl.textContent = msg.ok ? 'Finished (exit 0)' : 'Finished (exit ' + msg.code + ')';
+        headEl.className = msg.ok ? 'exit-ok' : 'exit-fail';
+      }
+    });
+  </script>
+</body>
+</html>`;
+
+  function openConsole(title) {
+    if (!panel) {
+      panel = vscode.window.createWebviewPanel(
+        'boltPreview',
+        title || 'Preview',
+        { viewColumn: vscode.ViewColumn.Beside, preserveFocus: true },
+        { enableScripts: true, retainContextWhenHidden: true }
+      );
+      panel.onDidDispose(() => { panel = undefined; });
+    } else {
+      panel.title = title || panel.title;
+      panel.reveal(vscode.ViewColumn.Beside, true);
+    }
+    panel.webview.html = CONSOLE_HTML;
+  }
+
   const RUNNABLE_LANGUAGES = new Set(['bolt', 'python', 'javascript', 'javascriptreact', 'typescript', 'typescriptreact']);
   const PORT_RE = /(?:localhost|127\.0\.0\.1):(\d{2,5})/i;
 
@@ -222,7 +270,7 @@ function activate(context) {
 
     killChild();
     output.clear();
-    output.show(true);
+    openConsole('Preview: ' + path.basename(file));
 
     let cmd, args;
     if (langId === 'bolt') {
@@ -264,11 +312,24 @@ function activate(context) {
     child.stdout.on('data', (data) => {
       const text = data.toString();
       output.append(text);
+      if (panel) panel.webview.postMessage({ type: 'append', text });
       tryOpenFromOutput(text);
     });
-    child.stderr.on('data', (data) => output.append(data.toString()));
-    child.on('close', (code) => output.appendLine(`\n[process exited with code ${code}]`));
-    child.on('error', (err) => output.appendLine(`\n[failed to start "${cmd}": ${err.message}]`));
+    child.stderr.on('data', (data) => {
+      const text = data.toString();
+      output.append(text);
+      if (panel) panel.webview.postMessage({ type: 'append', text });
+    });
+    child.on('close', (code) => {
+      output.appendLine(`\n[process exited with code ${code}]`);
+      // Only meaningful if we're still showing the console (a detected
+      // server swapped the panel's HTML to the live iframe already).
+      if (panel && !opened) panel.webview.postMessage({ type: 'done', ok: code === 0, code });
+    });
+    child.on('error', (err) => {
+      output.appendLine(`\n[failed to start "${cmd}": ${err.message}]`);
+      if (panel) panel.webview.postMessage({ type: 'append', text: `\n[failed to start "${cmd}": ${err.message}]` });
+    });
   }
 
   async function openPreviewPanel() {
@@ -398,7 +459,19 @@ function activate(context) {
 </html>`;
   }
 
-  async function askAssistant(question) {
+  // Only treat a question as an edit request (eligible for auto-apply) if
+  // it actually reads like one. Without this gate, asking something purely
+  // explanatory (e.g. "how do closures work?") would still get a code
+  // example in the reply and that example would silently overwrite the
+  // open file - auto-apply is only safe to fire on genuine edit intent.
+  const EDIT_INTENT_RE = /\b(fix|add|change|update|edit|refactor|rewrite|implement|write|make|modify|create|remove|delete|convert)\b/i;
+
+  function extractFirstCodeBlock(text) {
+    const m = String(text).match(/```(?:\w+)?\n([\s\S]*?)```/);
+    return m ? m[1].replace(/\n$/, '') : undefined;
+  }
+
+  async function askAssistant(question, targetUri) {
     const apiKey = await ensureApiKey(false);
     if (!apiKey) return { error: 'No API key set.' };
 
@@ -415,9 +488,14 @@ function activate(context) {
     if (assistantPanel) assistantPanel.webview.postMessage({ type: 'modelName', model });
 
     const kbChunks = searchKB(question);
+    const editRequested = EDIT_INTENT_RE.test(question) && !!targetUri;
     const systemPrompt =
       'You are the built-in assistant inside Bolt Studio, an editor for the Bolt programming language (a small Python-flavored scripting language). ' +
-      'Answer using the reference material below when it is relevant; if the question is unrelated to Bolt, just answer normally. Keep answers concise and use ```bo code fences for Bolt code.\n\n' +
+      'Answer using the reference material below when it is relevant; if the question is unrelated to Bolt, just answer normally. Keep answers concise and use ```bo code fences for Bolt code.' +
+      (editRequested
+        ? ' The user wants their currently open file edited. Reply with exactly ONE code fence containing the COMPLETE new file content (not a diff, not a snippet) - it will be applied to the file automatically, replacing everything in it. A short one-line explanation before the fence is fine.'
+        : '') +
+      '\n\n' +
       kbChunks.map((c) => `### ${c.title}\n${c.text}`).join('\n\n');
 
     const messages = [{ role: 'system', content: systemPrompt }, ...assistantHistory, { role: 'user', content: question }];
@@ -430,7 +508,24 @@ function activate(context) {
       assistantHistory.push({ role: 'assistant', content: reply });
       // Keep history bounded so requests stay small.
       if (assistantHistory.length > 20) assistantHistory = assistantHistory.slice(-20);
-      return { reply };
+
+      let applied;
+      if (editRequested) {
+        const code = extractFirstCodeBlock(reply);
+        if (code !== undefined) {
+          try {
+            const doc = await vscode.workspace.openTextDocument(targetUri);
+            const fullRange = new vscode.Range(doc.positionAt(0), doc.positionAt(doc.getText().length));
+            const edit = new vscode.WorkspaceEdit();
+            edit.replace(targetUri, fullRange, code);
+            await vscode.workspace.applyEdit(edit);
+            applied = { file: path.basename(targetUri.fsPath) };
+          } catch (e) {
+            applied = { error: 'Could not apply edit: ' + e.message };
+          }
+        }
+      }
+      return { reply, applied };
     } catch (e) {
       return { error: e.message };
     }
@@ -460,11 +555,22 @@ function activate(context) {
       }
       if (msg.type === 'ask') {
         assistantPanel.webview.postMessage({ type: 'thinking' });
-        const result = await askAssistant(msg.text);
+        // Capture the target file now, before the network round-trip - by
+        // the time the reply comes back, activeTextEditor could have
+        // changed (user clicked elsewhere while waiting).
+        const targetEditor = vscode.window.activeTextEditor;
+        const targetUri = targetEditor ? targetEditor.document.uri : undefined;
+        const result = await askAssistant(msg.text, targetUri);
         if (result.error) {
           assistantPanel.webview.postMessage({ type: 'error', text: result.error });
         } else {
-          assistantPanel.webview.postMessage({ type: 'reply', html: formatAssistantReply(result.reply) });
+          let html = formatAssistantReply(result.reply);
+          if (result.applied && result.applied.file) {
+            html += `<div style="margin-top:8px;font-size:11.5px;color:#7bc98c;">&#10003; Applied to ${escapeHtml(result.applied.file)} - Ctrl+Z to undo</div>`;
+          } else if (result.applied && result.applied.error) {
+            html += `<div style="margin-top:8px;font-size:11.5px;color:#e2895f;">${escapeHtml(result.applied.error)}</div>`;
+          }
+          assistantPanel.webview.postMessage({ type: 'reply', html });
         }
       }
     });
