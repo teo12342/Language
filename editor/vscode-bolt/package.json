@@ -1,8 +1,8 @@
 {
   "name": "bolt-lang",
   "displayName": "Bolt Language",
-  "description": "Syntax highlighting, language configuration, a Bolt-branded color theme, and a built-in app previewer for the Bolt programming language (.bo files) and beyond.",
-  "version": "0.3.0",
+  "description": "Syntax highlighting, language configuration, a Bolt-branded color theme, a built-in app previewer, and an AI assistant for the Bolt programming language (.bo files) and beyond.",
+  "version": "0.4.0",
   "publisher": "bolt-lang",
   "engines": {
     "vscode": "^1.75.0"
@@ -46,6 +46,15 @@
       {
         "command": "bolt.openPreviewPanel",
         "title": "Bolt: Open Preview Panel (any URL)"
+      },
+      {
+        "command": "bolt.openAssistant",
+        "title": "Bolt: Open Assistant",
+        "icon": "$(sparkle)"
+      },
+      {
+        "command": "bolt.setOpenRouterKey",
+        "title": "Bolt: Set OpenRouter API Key"
       }
     ],
     "menus": {
@@ -58,7 +67,9 @@
       ],
       "commandPalette": [
         { "command": "bolt.previewFile" },
-        { "command": "bolt.openPreviewPanel" }
+        { "command": "bolt.openPreviewPanel" },
+        { "command": "bolt.openAssistant" },
+        { "command": "bolt.setOpenRouterKey" }
       ]
     },
     "keybindings": [
