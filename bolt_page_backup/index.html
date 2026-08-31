@@ -403,7 +403,7 @@ footer a { color: var(--muted); }
         <a class="btn btn-secondary" href="#" onclick="showTab('compare');return false;">See the comparisons</a>
       </div>
       <div class="hero-meta">
-        <span><span class="dot-live"></span> v0.19.0 &middot; actively developed</span>
+        <span><span class="dot-live"></span> v0.20.0 &middot; actively developed</span>
         <span>MIT licensed</span>
         <span>github.com/teo12342/Language</span>
       </div>
@@ -433,7 +433,7 @@ footer a { color: var(--muted); }
         <div class="feature"><div class="ficon">&#10024;</div><h3>JS transpiler</h3><p><code>--target js</code> compiles Bolt straight to a standalone .js file — runs in Node or any browser, no dependencies.</p></div>
         <div class="feature"><div class="ficon">&#128225;</div><h3>Built-in web server</h3><p><code>serve()</code> answers real HTTP requests with dynamically computed responses — no framework required.</p></div>
         <div class="feature"><div class="ficon">&#128230;</div><h3>Python interop</h3><p><code>pyimport()</code> borrows an allowlisted slice of Python's real standard library directly, instead of reimplementing it.</p></div>
-        <div class="feature"><div class="ficon">&#127918;</div><h3>Game dev primitives</h3><p>Real windows, drawing, sprites, mouse/keyboard input, collision detection, and sound — GPU-accelerated via SDL2 on Windows, tkinter fallback elsewhere — <code>window()</code> and friends.</p></div>
+        <div class="feature"><div class="ficon">&#127918;</div><h3>Game dev primitives</h3><p>Real windows, drawing, sprites, tilemaps, a camera, mouse/keyboard input, collision detection, and sound — GPU-accelerated via SDL2 on Windows, tkinter fallback elsewhere — <code>window()</code> and friends.</p></div>
         <div class="feature"><div class="ficon">&#9878;</div><h3>Native C interpreter (new, experimental)</h3><p><code>native/bolt.c</code> is a from-scratch interpreter with zero Python dependency at runtime — verified against the Python implementation on real scripts. Covers core language + Win32 game builtins; no typing/tensors/pyimport() yet.</p></div>
       </div>
     </div>
@@ -859,6 +859,7 @@ node fibonacci.js</code></pre>
           <h3>Game development toolkit</h3>
           <p><code class="inline-c">window(width, height, title)</code> opens a real on-screen window — GPU-accelerated via a bundled SDL2 renderer on Windows, falling back automatically to a tkinter software canvas anywhere that isn't available. <code class="inline-c">tick(win, fps)</code> pumps the event loop, paces to the target frame rate, and returns <code class="inline-c">false</code> once the window closes — <code class="inline-c">while tick(win, 60) { ... }</code> is the entire game loop.</p>
           <p class="muted-p">Drawing: <code class="inline-c">clear</code>, <code class="inline-c">rect</code>, <code class="inline-c">circle</code>, <code class="inline-c">line</code>, <code class="inline-c">draw_text</code>, <code class="inline-c">draw_image</code>. Collision: <code class="inline-c">rects_overlap()</code> and <code class="inline-c">circles_overlap()</code>.</p>
+          <p class="muted-p"><strong style="color:var(--ink)">New in v0.20.0:</strong> a camera/viewport (<code class="inline-c">set_camera(win, x, y)</code> — offsets every subsequent <code class="inline-c">rect</code>/<code class="inline-c">circle</code>/<code class="inline-c">line</code>/<code class="inline-c">draw_image</code>/<code class="inline-c">draw_sprite</code> call automatically, <code class="inline-c">draw_text</code> deliberately stays in screen space for HUDs) and tilemaps (<code class="inline-c">load_tileset()</code>, <code class="inline-c">draw_tile()</code>, and <code class="inline-c">draw_tilemap(win, tileset, grid, tile_w, tile_h)</code> — draws a whole level from one Bolt list-of-lists in a single call, with <code class="inline-c">-1</code> marking an empty cell). Levels pan correctly with the camera for free. See <code class="inline-c">examples/camera_tilemap_demo.bo</code>.</p>
           <p class="muted-p"><strong style="color:var(--ink)">New in v0.19.0:</strong> a real GPU-accelerated rendering backend — every drawing/sprite call now runs through SDL2's hardware-accelerated <code class="inline-c">SDL_Renderer</code> on Windows (bundled, zero extra install) instead of tkinter's software canvas, with tkinter kept as an automatic fallback everywhere else. Same public API, no script changes required. See the changelog for the real bugs (a truncated 64-bit pointer, a wrong-by-default color channel order) found and fixed while building it.</p>
           <p class="muted-p"><strong style="color:var(--ink)">New in v0.18.0:</strong> sprite animation (<code class="inline-c">load_spritesheet()</code>, <code class="inline-c">make_anim()</code>, <code class="inline-c">anim_draw()</code>), audio mixing (<code class="inline-c">play_channel()</code>/<code class="inline-c">stop_channel()</code> — multiple named channels play simultaneously via Windows MCI, unlike <code class="inline-c">play_sound()</code> which can only play one sound at a time), basic physics (<code class="inline-c">apply_gravity()</code>, <code class="inline-c">physics_step()</code>, <code class="inline-c">clamp()</code>), and a scene/state stack (<code class="inline-c">packages/scenes.bo</code>). See <code class="inline-c">examples/platformer_demo.bo</code> for all four together.</p>
         </div>
@@ -892,7 +893,7 @@ node fibonacci.js</code></pre>
         <div class="chapter" id="bk-18">
           <div class="cnum">Chapter 18</div>
           <h3>What's not there yet</h3>
-          <p>Read honestly, not glossed over: no <code class="inline-c">try</code>/<code class="inline-c">catch</code> in the language itself — a runtime error is fatal, surfaced with a clear message and line number rather than recoverable. No language server (no autocomplete, no go-to-definition). No public package registry to publish to. The default VM is genuinely slow outside the native-compiled path (see Chapter 10). Tensors have no broadcasting or GPU support (rendering is a separate matter — see below). As of v0.19.0 the game-dev toolkit's rendering is GPU-accelerated via SDL2 on Windows (tkinter fallback elsewhere), on top of v0.18.0's sprite animation, audio mixing, basic physics, and a scene/state stack (see Chapter 13) — still no scene *graph* (a rendering hierarchy), no shipped games, and no community around any of it.</p>
+          <p>Read honestly, not glossed over: no <code class="inline-c">try</code>/<code class="inline-c">catch</code> in the language itself — a runtime error is fatal, surfaced with a clear message and line number rather than recoverable. No language server (no autocomplete, no go-to-definition). No public package registry to publish to. The default VM is genuinely slow outside the native-compiled path (see Chapter 10). Tensors have no broadcasting or GPU support (rendering is a separate matter — see below). As of v0.20.0 the game-dev toolkit has a camera/viewport and tilemap rendering (see Chapter 13), on top of v0.19.0's SDL2 GPU-accelerated rendering and v0.18.0's sprite animation, audio mixing, basic physics, and a scene/state stack — still no scene *graph* (a rendering hierarchy), no tileset/level file format to import from (Tiled .tmx or similar), no shipped games, and no community around any of it.</p>
           <p class="muted-p">None of this is hidden on the Comparisons tab either — see the full report for the same gaps stated in direct comparison to Python, JavaScript, C, and C++.</p>
         </div>
       </div>
@@ -1001,7 +1002,8 @@ node fibonacci.js</code></pre>
         <div class="version-item"><span class="version-tl-badge">v0.15.0</span><div class="version-desc">Fixed a real VM bug: deep recursion crashed with RecursionError at ~1000 levels (now handles 50,000+). A correctness fix, not a speed win — fib(30) on the default engine is still ~17s.</div></div>
         <div class="version-item"><span class="version-tl-badge">v0.16.0</span><div class="version-desc">mouse_x()/mouse_y()/mouse_down(), line(), and stop_sound() — a real bare-metal 2D toolkit checklist for game dev.</div></div>
         <div class="version-item"><span class="version-tl-badge">v0.17.0</span><div class="version-desc">Previous release.</div></div>
-        <div class="version-item current"><span class="version-tl-badge">v0.19.0</span><div class="version-desc">Real GPU-accelerated rendering: a new SDL2 backend takes over every drawing/sprite builtin on Windows (tkinter kept as an automatic fallback), a ctypes pointer-truncation crash and a wrong-by-default color channel order found and fixed along the way. Current release.</div></div>
+        <div class="version-item current"><span class="version-tl-badge">v0.20.0</span><div class="version-desc">A camera/viewport and tilemap rendering for level-building: set_camera() offsets every drawing call, draw_tilemap() renders a whole level from one nested list in a single call, and both work identically on either rendering backend. Current release.</div></div>
+        <div class="version-item"><span class="version-tl-badge">v0.19.0</span><div class="version-desc">Real GPU-accelerated rendering: a new SDL2 backend takes over every drawing/sprite builtin on Windows (tkinter kept as an automatic fallback), a ctypes pointer-truncation crash and a wrong-by-default color channel order found and fixed along the way.</div></div>
         <div class="version-item"><span class="version-tl-badge">v0.18.0</span><div class="version-desc">Sprite animation, audio channel mixing, basic 2D physics, and a scene/state stack for games — plus a real cross-module closure bug found and fixed in the VM along the way.</div></div>
       </div>
     </div>
@@ -1058,7 +1060,7 @@ node fibonacci.js</code></pre>
 
 <span class="kw">let</span> versions = [
     {<span class="str">"badge"</span>: <span class="str">"v0.7.0"</span>, <span class="str">"desc"</span>: <span class="str">"Added the built-in serve() web server."</span>, <span class="str">"current"</span>: <span class="kw">false</span>}
-    <span class="com"># ... v0.8.0 through v0.19.0 ...</span>
+    <span class="com"># ... v0.8.0 through v0.20.0 ...</span>
 ]
 <span class="kw">let</span> html = <span class="str">""</span>
 <span class="kw">for</span> v <span class="kw">in</span> versions {
