@@ -868,7 +868,7 @@ node fibonacci.js</code></pre>
         <div class="chapter" id="bk-14">
           <div class="cnum">Chapter 14</div>
           <h3>Mouse, sound, and sprites</h3>
-          <p><code class="inline-c">mouse_x(win)</code> / <code class="inline-c">mouse_y(win)</code> / <code class="inline-c">mouse_down(win, button)</code> track real cursor position and button state (<code class="inline-c">"left"</code> or <code class="inline-c">"right"</code>). <code class="inline-c">draw_image(win, path, x, y)</code> draws a real PNG/GIF, cached per window by path. <code class="inline-c">beep(freq, duration_ms)</code> and <code class="inline-c">play_sound(path)</code> / <code class="inline-c">stop_sound()</code> give real audio via the stdlib <code class="inline-c">winsound</code> module — Windows only, with a clear error elsewhere.</p>
+          <p><code class="inline-c">mouse_x(win)</code> / <code class="inline-c">mouse_y(win)</code> / <code class="inline-c">mouse_down(win, button)</code> track real cursor position and button state (<code class="inline-c">"left"</code> or <code class="inline-c">"right"</code>). <code class="inline-c">draw_image(win, path, x, y)</code> draws a real PNG/GIF, cached per window by path. <code class="inline-c">beep(freq, duration_ms)</code> and <code class="inline-c">play_sound(path)</code> / <code class="inline-c">stop_sound()</code> give real audio via SDL2 or winsound (Windows) — see Chapter 13 for the backend split.</p>
         </div>
 
         <div class="chapter" id="bk-15">
@@ -882,7 +882,7 @@ node fibonacci.js</code></pre>
           <div class="cnum">Chapter 16</div>
           <h3>Bolt Studio in depth</h3>
           <p>Bolt Studio is a rebranded VSCodium build (the telemetry-free, open-source build of VS Code) with the Bolt language extension baked in as a built-in extension — not something you find and install from a marketplace. That extension contributes real TextMate-grammar syntax highlighting for <code class="inline-c">.bo</code> files, file icons, and a full workbench color theme ("Bolt Dark": activity bar, tabs, buttons, editor chrome, not just syntax colors) built around the same palette used across this site.</p>
-          <p class="muted-p">Everything else — file explorer, terminal, git integration, the extension marketplace for every other language — comes free from the underlying VS Code codebase. No language server yet, so no autocomplete or inline type errors inside the editor itself.</p>
+          <p class="muted-p">Everything else — file explorer, terminal, git integration, the extension marketplace for every other language — comes free from the underlying VS Code codebase. Available for Windows and Linux (see the Download tab); no language server yet, so no autocomplete or inline type errors inside the editor itself.</p>
         </div>
 
         <div class="chapter" id="bk-17">
@@ -1082,16 +1082,16 @@ node fibonacci.js</code></pre>
 
     <div class="download-card">
       <div class="os-icon">&#8862; Windows 10 / 11 &middot; 64-bit</div>
-      <h3>Bolt Studio v0.4.1</h3>
-      <p>A rebranded VSCodium build with Bolt syntax highlighting, the Bolt Dark theme, a built-in Run &amp; Preview panel, and an AI assistant (bring your own free OpenRouter key) baked in.</p>
+      <h3>Bolt Studio v0.4.1 <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--star-on);border:1px solid var(--star-on);border-radius:100px;padding:2px 9px;vertical-align:middle;">Beta</span></h3>
+      <p>A rebranded VSCodium build with Bolt syntax highlighting, the Bolt Dark theme, a built-in Run &amp; Preview panel, and an AI assistant (bring your own free OpenRouter key) baked in. Still in beta — unfinished features and rough edges are expected.</p>
       <a class="download-btn" href="https://github.com/teo12342/Language/releases/download/bolt-studio-v0.4.1/BoltStudio-Setup-win32-x64.exe">&#8681; Download for Windows (.exe)</a>
       <div class="download-sub">~153 MB &middot; unsigned build &middot; also on <a href="https://github.com/teo12342/Language/releases/tag/bolt-studio-v0.4.1" style="color:inherit" target="_blank" rel="noopener">GitHub Releases</a></div>
     </div>
 
     <div class="download-card">
       <div class="os-icon">&#128039; Linux &middot; x86-64</div>
-      <h3>Bolt Studio for Linux</h3>
-      <p>Same VSCodium build and Bolt branding as the Windows release, packaged as a portable tarball with a real (no-root) <code>install.sh</code> — extracts to <code>~/.local/share</code>, symlinks a launcher, and registers a desktop entry.</p>
+      <h3>Bolt Studio for Linux <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--star-on);border:1px solid var(--star-on);border-radius:100px;padding:2px 9px;vertical-align:middle;">Beta</span></h3>
+      <p>Same VSCodium build and Bolt branding as the Windows release, packaged as a portable tarball with a real (no-root) <code>install.sh</code> — extracts to <code>~/.local/share</code>, symlinks a launcher, and registers a desktop entry. Still in beta — unfinished features and rough edges are expected.</p>
       <a class="download-btn" href="https://github.com/teo12342/Language/actions/workflows/build-bolt-studio.yml" target="_blank" rel="noopener">&#8681; Build via GitHub Actions</a>
       <div class="download-sub">The CI pipeline that builds <code>BoltStudio-linux-x64.tar.gz</code> just landed — it attaches to the <em>next</em> tagged Bolt Studio release. For right now, run <code>workflow_dispatch</code> on that Action yourself, or build locally by following the same steps the workflow runs.</div>
     </div>
