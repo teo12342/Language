@@ -950,6 +950,62 @@ def _draw_tilemap(win, tileset, grid, tile_w, tile_h, offset_x=0, offset_y=0):
     return None
 
 
+class _BoltParticles:
+    """Small deterministic-friendly particle emitter for 2D games.
+
+    Particles are plain Python state behind three builtins so game scripts do
+    not need to manage parallel position/velocity/lifetime arrays.
+    """
+
+    def __init__(self, count, color="#e2895f", size=3):
+        import random
+        self.color = color
+        self.size = max(1.0, float(size))
+        self.items = []
+        for _ in range(max(0, int(count))):
+            angle = random.random() * 6.283185307179586
+            speed = 20.0 + random.random() * 80.0
+            self.items.append({"x": 0.0, "y": 0.0, "vx": __import__("math").cos(angle) * speed,
+                               "vy": __import__("math").sin(angle) * speed,
+                               "life": 1.0})
+
+
+def _make_particles(count, color="#e2895f", size=3):
+    return _BoltParticles(count, color, size)
+
+
+def _particles_emit(particles, x, y):
+    if not isinstance(particles, _BoltParticles):
+        raise BoltRuntimeError("particles_emit() expects particles from make_particles()")
+    for item in particles.items:
+        item["x"], item["y"], item["life"] = float(x), float(y), 1.0
+    return particles
+
+
+def _particles_step(particles, dt, gravity=80):
+    if not isinstance(particles, _BoltParticles):
+        raise BoltRuntimeError("particles_step() expects particles from make_particles()")
+    dt, gravity = float(dt), float(gravity)
+    alive = []
+    for item in particles.items:
+        item["vy"] += gravity * dt
+        item["x"] += item["vx"] * dt
+        item["y"] += item["vy"] * dt
+        item["life"] -= dt
+        if item["life"] > 0:
+            alive.append(item)
+    particles.items = alive
+    return len(alive)
+
+
+def _particles_draw(win, particles):
+    if not isinstance(particles, _BoltParticles):
+        raise BoltRuntimeError("particles_draw() expects particles from make_particles()")
+    for item in particles.items:
+        _circle(win, item["x"], item["y"], particles.size, particles.color)
+    return None
+
+
 class _BoltAnim:
     """Time-driven playback state over a list of frame indices into one
     spritesheet. anim_draw() both advances playback (based on real
@@ -1302,4 +1358,8 @@ def make_builtins(call_fn=None) -> dict[str, object]:
         "integrate": _integrate,
         "clamp": _clamp,
         "physics_step": _physics_step,
+        "make_particles": _make_particles,
+        "particles_emit": _particles_emit,
+        "particles_step": _particles_step,
+        "particles_draw": _particles_draw,
     }

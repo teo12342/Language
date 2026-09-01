@@ -10,6 +10,9 @@ from bolt.builtins import (
     _probe_image_size,
     _sprite_frame_count,
     _tilemap_placements,
+    _make_particles,
+    _particles_emit,
+    _particles_step,
 )
 from bolt import sdl_backend
 
@@ -43,6 +46,15 @@ def test_sdl_backend_pack_color_matches_verified_channel_order():
     # (alpha ended up 0). This locks that finding in as a regression test.
     packed = sdl_backend._pack_color("#e2895f")
     assert packed == 0xFF5F89E2  # (A=255)<<24 | (B=0x5F)<<16 | (G=0x89)<<8 | R=0xE2
+
+
+def test_particles_emit_and_step_expire_without_a_window():
+    particles = _make_particles(4, "#fff", 2)
+    _particles_emit(particles, 10, 20)
+    assert len(particles.items) == 4
+    assert all(item["x"] == 10 and item["y"] == 20 for item in particles.items)
+    assert _particles_step(particles, 0.5) == 4
+    assert _particles_step(particles, 0.6) == 0
 
 
 
