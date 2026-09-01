@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+# install.sh - installs Bolt Studio for the current Linux user.
+#
+# Extracts the bundled portable app into ~/.local/share/bolt-studio,
+# symlinks a launcher into ~/.local/bin, and registers a .desktop entry
+# so Bolt Studio shows up in application menus/launchers - all without
+# root, matching the XDG user-install convention most desktop Linux
+# distros already expect (~/.local/bin is on PATH by default on
+# Ubuntu/Fedora/most others that ship a modern GNOME/KDE session).
+#
+# Usage: run this script from inside the extracted BoltStudio-linux-x64
+# directory (it lives right next to the "VSCode-linux-x64" folder it
+# installs).
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+APP_SRC="$SCRIPT_DIR/VSCode-linux-x64"
+INSTALL_DIR="$HOME/.local/share/bolt-studio"
+BIN_DIR="$HOME/.local/bin"
+DESKTOP_DIR="$HOME/.local/share/applications"
+ICON_DIR="$HOME/.local/share/icons/hicolor/256x256/apps"
+
+if [ ! -d "$APP_SRC" ]; then
+  echo "error: VSCode-linux-x64 not found next to this script (expected $APP_SRC)." >&2
+  echo "Run this script from inside the extracted BoltStudio-linux-x64 tarball." >&2
+  exit 1
+fi
+
+echo "Installing Bolt Studio to $INSTALL_DIR ..."
+rm -rf "$INSTALL_DIR"
+mkdir -p "$(dirname "$INSTALL_DIR")"
+cp -r "$APP_SRC" "$INSTALL_DIR"
+
+mkdir -p "$BIN_DIR"
+ln -sf "$INSTALL_DIR/bin/codium" "$BIN_DIR/bolt-studio"
+
+mkdir -p "$DESKTOP_DIR"
+cat > "$DESKTOP_DIR/bolt-studio.desktop" <<EOF
+[Desktop Entry]
+Name=Bolt Studio
+Comment=Editor for the Bolt programming language
+Exec=$INSTALL_DIR/bin/codium %F
+Icon=bolt-studio
+Terminal=false
+Type=Application
+Categories=Development;IDE;
+StartupWMClass=codium
+EOF
+
+mkdir -p "$ICON_DIR"
+if [ -f "$INSTALL_DIR/resources/app/resources/linux/code.png" ]; then
+  cp "$INSTALL_DIR/resources/app/resources/linux/code.png" "$ICON_DIR/bolt-studio.png"
+fi
+
+update-desktop-database "$DESKTOP_DIR" >/dev/null 2>&1 || true
+
+echo "Done. Launch with 'bolt-studio' (make sure $BIN_DIR is on your PATH)"
+echo "or find \"Bolt Studio\" in your application menu."

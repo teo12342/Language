@@ -1,5 +1,8 @@
 from pathlib import Path
 
+import os
+import sys
+
 from bolt.builtins import (
     _apply_camera,
     _load_spritesheet,
@@ -9,6 +12,8 @@ from bolt.builtins import (
     _tilemap_placements,
 )
 from bolt import sdl_backend
+
+import pytest
 
 from .test_stdlib import run_and_capture
 
@@ -38,6 +43,60 @@ def test_sdl_backend_pack_color_matches_verified_channel_order():
     # (alpha ended up 0). This locks that finding in as a regression test.
     packed = sdl_backend._pack_color("#e2895f")
     assert packed == 0xFF5F89E2  # (A=255)<<24 | (B=0x5F)<<16 | (G=0x89)<<8 | R=0xE2
+
+
+
+def test_probe_linux_lib_returns_none_when_nothing_matches():
+    assert sdl_backend._probe_linux_lib(["libDefinitelyDoesNotExist_xyz.so.0"]) is None
+
+
+@pytest.mark.skipif(
+    not sys.platform.startswith("linux"),
+    reason="Linux system-library loading path only applies on Linux",
+)
+def test_linux_sdl2_backend_loads_from_real_system_libraries():
+    # Requires the actual runtime packages installed (e.g. `apt install
+    # libsdl2-2.0-0 libsdl2-gfx-1.0-0 libsdl2-image-2.0-0`) - skips rather
+    # than failing if this machine doesn't have them, same pattern as
+    # test_native.py skipping when no C compiler is present.
+    if not sdl_backend.available():
+        pytest.skip("SDL2 runtime libraries not installed on this machine")
+
+    os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
+    os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
+
+    win = sdl_backend.SDLWindow(20, 20, "linux backend test")
+    try:
+        win.clear("#000000")
+        win.rect(0, 0, 20, 20, "#e2895f")
+        win.tick(60)
+        win.tick(60)  # presents the frame drawn above
+
+        import ctypes
+
+        class _Rect(ctypes.Structure):
+            _fields_ = [("x", ctypes.c_int), ("y", ctypes.c_int), ("w", ctypes.c_int), ("h", ctypes.c_int)]
+
+        # A NULL rect means "read the whole framebuffer" (here 20*20*4 =
+        # 1600 bytes), not "read one pixel" - passing NULL with a 4-byte
+        # buffer overflowed the heap and segfaulted, but only visibly so
+        # under pytest's different memory layout (it silently corrupted
+        # memory and ran fine standalone). Reading an explicit 1x1 rect
+        # is the actual fix, not just what happened not to crash.
+        one_px = _Rect(0, 0, 1, 1)
+        buf = ctypes.create_string_buffer(4)
+        sdl_backend._sdl2.SDL_RenderReadPixels.argtypes = [
+            ctypes.c_void_p, ctypes.POINTER(_Rect), ctypes.c_uint32, ctypes.c_void_p, ctypes.c_int,
+        ]
+        rc = sdl_backend._sdl2.SDL_RenderReadPixels(win.ren, ctypes.byref(one_px), 0x16462004, buf, 4)
+        assert rc == 0
+        a, b, g, r = buf.raw[0], buf.raw[1], buf.raw[2], buf.raw[3]
+        # same pixel-perfect check as the Windows-verified color packing,
+        # now confirmed against a real system-installed SDL2 on Linux too
+        assert (r, g, b) == (0xE2, 0x89, 0x5F)
+    finally:
+        win.close()
+
 
 
 

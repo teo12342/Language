@@ -2,6 +2,84 @@
 
 All notable changes to Bolt, by version.
 
+## v0.21.0
+
+Real Linux support - previously the SDL2 GPU-rendering/audio path (and
+Bolt Studio's installer) was Windows-only; this round makes both work
+genuinely on Linux too, verified with real execution on a real Linux
+machine (Debian, with the actual `libsdl2-2.0-0`/`libsdl2-gfx-1.0-0`/
+`libsdl2-image-2.0-0` packages installed via apt), not just parsed or
+compile-checked.
+
+- **Cross-platform SDL2 loading**: `sdl_backend.py` now loads the
+  system's own SDL2 install on Linux via `ctypes.CDLL`, trying each
+  distro's real versioned `.so` name in turn (`libSDL2-2.0.so.0` etc.).
+  Deliberately *not* `ctypes.util.find_library()` - verified empirically
+  that it returns `None` on a stock Debian system with only the
+  `libsdl2-2.0-0` runtime package installed (it looks for the
+  unversioned symlink that only ships in the `-dev` packages); relying
+  on it would have silently left every Linux user without the SDL2
+  backend. A missing library now raises a clear error naming the exact
+  `apt`/`dnf` packages to install.
+- **Real bug found and fixed along the way**: the pre-existing
+  `_ensure_init()` gate raised a stale, Windows-flavored "runtime/sdl2/
+  DLLs are missing" error on Linux even after the platform-specific
+  Linux error message was added elsewhere - caught by a test that
+  simulated a missing library and got the wrong message back. Fixed by
+  removing the redundant gate and letting `_configure()`'s own
+  platform-specific error surface directly.
+- **Cross-platform audio**: `beep()`, `play_sound()`, and `stop_sound()`
+  now work on Linux too, backed by SDL2's `SDL_QueueAudio` API (the same
+  SDL2 already loaded for rendering) instead of the Windows-only
+  `winsound` module - `beep()` synthesizes a real sine-wave tone,
+  `play_sound()` decodes real `.wav` files via `SDL_LoadWAV_RW`. Verified
+  end-to-end through the real CLI, including `wait=true`/`wait=false`
+  timing and `stop_sound()` clearing the queue. Honest limitation found
+  and documented: switching between two sounds at different sample
+  rates forces the audio device to close and reopen, costing real
+  measured latency (~0.37s in this environment) beyond the sound's own
+  length - not addressed this round (would need a resampling layer).
+  `play_channel()`'s true simultaneous multi-channel mixing remains
+  Windows-only (it's built on the Windows Media Control Interface,
+  which has no Linux equivalent) - stated honestly, not silently
+  dropped.
+- **Real bug found and fixed in my own test code**: an early pixel-
+  readback test passed a `NULL` rect to `SDL_RenderReadPixels()` (which
+  means "read the *entire* framebuffer") into a 4-byte buffer sized for
+  one pixel - a heap overflow that ran fine standalone by pure luck of
+  memory layout but segfaulted immediately under pytest's different
+  layout. Fixed by passing a real 1x1 rect; both the segfault and the
+  fix were reproduced and confirmed on a real machine, not assumed.
+- **Bolt Studio Linux build**: `.github/workflows/build-bolt-studio.yml`
+  gained a `build-linux` job that builds Bolt Studio for Linux from the
+  same VSCodium source and Bolt branding as the existing Windows job,
+  packaged as `BoltStudio-linux-x64.tar.gz` (portable build + a bundled
+  `editor/linux/install.sh`) and attached to the same GitHub release.
+- **`editor/linux/install.sh`**: a real user-local installer (no root) -
+  extracts the app to `~/.local/share/bolt-studio`, symlinks a
+  `bolt-studio` launcher into `~/.local/bin`, and registers a
+  `.desktop` entry + icon so Bolt Studio shows up in the application
+  menu, matching the XDG user-install convention most desktop Linux
+  distros already expect. Verified end-to-end against a fake app tree
+  standing in for the real VSCodium build output: extraction, symlink
+  resolution, the generated `.desktop` file's contents, and actually
+  invoking the resulting launcher, plus the missing-input error path.
+- 2 new tests (131 total, all passing): a pure test for the Linux
+  library-probe helper, and a real end-to-end test that opens an actual
+  SDL2 window via the system's installed SDL2, draws to it, and reads
+  back a pixel to confirm the color-packing convention verified on
+  Windows in v0.19.0 holds identically on Linux (skips gracefully if
+  SDL2 isn't installed on the machine running the tests, same pattern
+  as `test_native.py` skipping without a C compiler).
+- Honest scope: macOS is not attempted - `sdl_backend.available()`
+  returns `False` there and the tkinter fallback is used, same as any
+  other unsupported platform. The Linux build job's `.deb`/`.rpm`/
+  AppImage packaging was deliberately skipped in favor of a portable
+  tarball + install script, for the same reason the Windows job wraps
+  VSCodium's own portable build in Inno Setup rather than fighting its
+  packaging scripts - one thing this project can actually keep working
+  and verify, not three distro-specific formats.
+
 ## v0.20.0
 
 Real level-building capability for the game-dev toolkit: a camera/

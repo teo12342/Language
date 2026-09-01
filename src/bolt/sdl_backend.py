@@ -4,19 +4,47 @@ capability upgrade over the original tkinter Canvas backend, which is
 software-rendered and visibly dated. The public surface
 (window/clear/rect/circle/line/draw_text/draw_image/key/mouse_*/tick/
 close_window, plus sprite sheets/animation) is unchanged from a Bolt
-script author's point of view; builtins.py picks this backend when the
-bundled DLLs (runtime/sdl2/) are present and falls back to tkinter
-otherwise (e.g. non-Windows, or that directory stripped out).
+script author's point of view; builtins.py picks this backend when SDL2
+is available and falls back to tkinter otherwise.
+
+Cross-platform library loading:
+- Windows: the three DLLs are bundled in runtime/sdl2/ (zero extra
+  install - see that directory's README).
+- Linux: loaded from the system's own SDL2 install via ctypes.CDLL,
+  trying each distro's real versioned .so name in turn. NOT via
+  ctypes.util.find_library() - verified empirically that it returns
+  None on a stock Debian/Ubuntu system with only the runtime packages
+  (libsdl2-2.0-0 etc.) installed, because find_library() looks for the
+  unversioned lib*.so symlink that only ships in the *-dev packages;
+  real Linux users installing the runtime libs alone would silently
+  get no SDL2 backend if this loader relied on it. If none of the
+  candidate names load, a clear error names the exact apt packages to
+  install rather than a raw ctypes error.
+- Anywhere else (e.g. macOS): not attempted; falls back to tkinter.
 """
 
 import ctypes
 import os
+import sys
 import time
 from pathlib import Path
 
 from .errors import BoltRuntimeError
 
 _RUNTIME_DIR = Path(__file__).resolve().parent.parent.parent / "runtime" / "sdl2"
+
+# Real versioned .so names as shipped by the runtime (non -dev) packages on
+# Debian/Ubuntu and Fedora, in the order tried. libSDL2.so (unversioned) is
+# tried last as a bonus for anyone who does have the -dev package.
+_LINUX_CANDIDATES = {
+    "SDL2": ["libSDL2-2.0.so.0", "libSDL2-2.0.so", "libSDL2.so"],
+    "SDL2_gfx": ["libSDL2_gfx-1.0.so.0", "libSDL2_gfx-1.0.so", "libSDL2_gfx.so"],
+    "SDL2_image": ["libSDL2_image-2.0.so.0", "libSDL2_image-2.0.so", "libSDL2_image.so"],
+}
+_LINUX_INSTALL_HINT = (
+    "sudo apt install libsdl2-2.0-0 libsdl2-gfx-1.0-0 libsdl2-image-2.0-0 "
+    "(Debian/Ubuntu) or sudo dnf install SDL2 SDL2_gfx SDL2_image (Fedora)"
+)
 
 _sdl2 = None
 _gfx = None
@@ -25,6 +53,8 @@ _available = None
 _initialized = False
 
 SDL_INIT_VIDEO = 0x00000020
+SDL_INIT_AUDIO = 0x00000010
+AUDIO_S16LSB = 0x8010
 SDL_WINDOWPOS_UNDEFINED = 0x1FFF0000
 SDL_WINDOW_SHOWN = 0x00000004
 SDL_RENDERER_ACCELERATED = 0x00000002
@@ -48,17 +78,50 @@ IMG_INIT_PNG = 2
 def available() -> bool:
     global _available
     if _available is None:
-        _available = (
-            os.name == "nt"
-            and (_RUNTIME_DIR / "SDL2.dll").exists()
-            and (_RUNTIME_DIR / "SDL2_gfx.dll").exists()
-            and (_RUNTIME_DIR / "SDL2_image.dll").exists()
-        )
+        if os.name == "nt":
+            _available = (
+                (_RUNTIME_DIR / "SDL2.dll").exists()
+                and (_RUNTIME_DIR / "SDL2_gfx.dll").exists()
+                and (_RUNTIME_DIR / "SDL2_image.dll").exists()
+            )
+        elif sys.platform.startswith("linux"):
+            _available = all(_probe_linux_lib(names) is not None for names in _LINUX_CANDIDATES.values())
+        else:
+            _available = False
     return _available
+
+
+def _probe_linux_lib(candidate_names):
+    """Tries each real .so name in turn, returning the first name that
+    actually loads (not the handle - _configure() below does the real
+    load once and keeps it). Used both by available() (cheap yes/no) and
+    _configure() (which needs to know which name worked).
+    """
+    for name in candidate_names:
+        try:
+            ctypes.CDLL(name)
+            return name
+        except OSError:
+            continue
+    return None
 
 
 class _SDL_Rect(ctypes.Structure):
     _fields_ = [("x", ctypes.c_int), ("y", ctypes.c_int), ("w", ctypes.c_int), ("h", ctypes.c_int)]
+
+
+class _SDL_AudioSpec(ctypes.Structure):
+    _fields_ = [
+        ("freq", ctypes.c_int),
+        ("format", ctypes.c_uint16),
+        ("channels", ctypes.c_uint8),
+        ("silence", ctypes.c_uint8),
+        ("samples", ctypes.c_uint16),
+        ("padding", ctypes.c_uint16),
+        ("size", ctypes.c_uint32),
+        ("callback", ctypes.c_void_p),  # NULL - queue-based audio (SDL_QueueAudio) instead
+        ("userdata", ctypes.c_void_p),
+    ]
 
 
 # SDL_Event is a big union; we only need the leading `type` field to
@@ -111,16 +174,39 @@ class _SDL_Event(ctypes.Union):
 def _configure():
     global _sdl2, _gfx, _img
     if os.name == "nt":
+        missing = [n for n in ("SDL2.dll", "SDL2_gfx.dll", "SDL2_image.dll") if not (_RUNTIME_DIR / n).exists()]
+        if missing:
+            raise BoltRuntimeError(f"SDL2 backend requested but runtime/sdl2/ is missing: {', '.join(missing)}")
         try:
             os.add_dll_directory(str(_RUNTIME_DIR))
         except (AttributeError, OSError):
             pass
-    _sdl2 = ctypes.CDLL(str(_RUNTIME_DIR / "SDL2.dll"))
-    _gfx = ctypes.CDLL(str(_RUNTIME_DIR / "SDL2_gfx.dll"))
-    _img = ctypes.CDLL(str(_RUNTIME_DIR / "SDL2_image.dll"))
+        _sdl2 = ctypes.CDLL(str(_RUNTIME_DIR / "SDL2.dll"))
+        _gfx = ctypes.CDLL(str(_RUNTIME_DIR / "SDL2_gfx.dll"))
+        _img = ctypes.CDLL(str(_RUNTIME_DIR / "SDL2_image.dll"))
+    elif sys.platform.startswith("linux"):
+        sdl2_name = _probe_linux_lib(_LINUX_CANDIDATES["SDL2"])
+        gfx_name = _probe_linux_lib(_LINUX_CANDIDATES["SDL2_gfx"])
+        img_name = _probe_linux_lib(_LINUX_CANDIDATES["SDL2_image"])
+        if not (sdl2_name and gfx_name and img_name):
+            missing = [
+                lib for lib, name in [("SDL2", sdl2_name), ("SDL2_gfx", gfx_name), ("SDL2_image", img_name)]
+                if not name
+            ]
+            raise BoltRuntimeError(
+                f"SDL2 backend requested but {', '.join(missing)} isn't installed on this system. "
+                f"Install it with: {_LINUX_INSTALL_HINT}"
+            )
+        _sdl2 = ctypes.CDLL(sdl2_name)
+        _gfx = ctypes.CDLL(gfx_name)
+        _img = ctypes.CDLL(img_name)
+    else:
+        raise BoltRuntimeError("SDL2 backend is only supported on Windows and Linux")
 
     _sdl2.SDL_Init.argtypes = [ctypes.c_uint32]
     _sdl2.SDL_Init.restype = ctypes.c_int
+    _sdl2.SDL_InitSubSystem.argtypes = [ctypes.c_uint32]
+    _sdl2.SDL_InitSubSystem.restype = ctypes.c_int
     _sdl2.SDL_GetError.restype = ctypes.c_char_p
     _sdl2.SDL_CreateWindow.restype = ctypes.c_void_p
     _sdl2.SDL_CreateWindow.argtypes = [ctypes.c_char_p, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_uint32]
@@ -149,13 +235,35 @@ def _configure():
     _img.IMG_LoadTexture.argtypes = [ctypes.c_void_p, ctypes.c_char_p]
     _img.IMG_Init.argtypes = [ctypes.c_int]
 
+    _sdl2.SDL_RWFromFile.restype = ctypes.c_void_p
+    _sdl2.SDL_RWFromFile.argtypes = [ctypes.c_char_p, ctypes.c_char_p]
+    _sdl2.SDL_LoadWAV_RW.restype = ctypes.c_void_p
+    _sdl2.SDL_LoadWAV_RW.argtypes = [
+        ctypes.c_void_p, ctypes.c_int, ctypes.POINTER(_SDL_AudioSpec),
+        ctypes.POINTER(ctypes.POINTER(ctypes.c_uint8)), ctypes.POINTER(ctypes.c_uint32),
+    ]
+    _sdl2.SDL_FreeWAV.argtypes = [ctypes.c_void_p]
+    _sdl2.SDL_OpenAudioDevice.restype = ctypes.c_uint32
+    _sdl2.SDL_OpenAudioDevice.argtypes = [
+        ctypes.c_char_p, ctypes.c_int, ctypes.POINTER(_SDL_AudioSpec), ctypes.POINTER(_SDL_AudioSpec), ctypes.c_int,
+    ]
+    _sdl2.SDL_PauseAudioDevice.argtypes = [ctypes.c_uint32, ctypes.c_int]
+    _sdl2.SDL_QueueAudio.restype = ctypes.c_int
+    _sdl2.SDL_QueueAudio.argtypes = [ctypes.c_uint32, ctypes.c_void_p, ctypes.c_uint32]
+    _sdl2.SDL_ClearQueuedAudio.argtypes = [ctypes.c_uint32]
+    _sdl2.SDL_CloseAudioDevice.argtypes = [ctypes.c_uint32]
+
 
 def _ensure_init():
     global _initialized
     if _initialized:
         return
-    if not available():
-        raise BoltRuntimeError("SDL2 backend requested but runtime/sdl2/ DLLs are missing")
+    # Deliberately not gated on available() here - _configure() raises its
+    # own specific, actionable error per platform (which Linux package is
+    # missing, or that the DLLs directory is missing on Windows). A stale
+    # generic "DLLs are missing" message here previously masked that error
+    # on Linux entirely - caught by a test that simulated a missing lib and
+    # found this exact message instead of the real one.
     _configure()
     if _sdl2.SDL_Init(SDL_INIT_VIDEO) != 0:
         raise BoltRuntimeError(f"SDL2 failed to initialize: {_sdl2.SDL_GetError().decode('utf-8', 'replace')}")
@@ -334,3 +442,104 @@ class SDLWindow:
     def __str__(self):
         state = "closed" if self.closed else "open"
         return f"<window {self.width}x{self.height} {state} (sdl2)>"
+
+
+# ---- cross-platform audio (beep/play_sound/stop_sound) ----
+#
+# Windows keeps using winsound (see builtins.py) since it's already a
+# perfectly good stdlib solution there. On Linux (no winsound module),
+# this backs the same three builtins via SDL2's raw audio-queue API
+# (SDL_QueueAudio), reusing the SDL2 handle already loaded for
+# rendering rather than requiring a second audio library. Single-stream
+# semantics match winsound.PlaySound(): starting a new sound replaces
+# whatever was playing, same as SND_ASYNC's implicit behavior.
+
+_audio_dev = None
+_audio_dev_spec = None  # (freq, format, channels) of the currently open device
+_audio_initialized = False
+
+
+def _ensure_audio_init():
+    global _audio_initialized
+    if _audio_initialized:
+        return
+    if not available():
+        raise BoltRuntimeError(
+            "Cross-platform audio requested but SDL2 isn't available. "
+            f"Install it with: {_LINUX_INSTALL_HINT}"
+        )
+    if _sdl2 is None:
+        _configure()
+    if _sdl2.SDL_InitSubSystem(SDL_INIT_AUDIO) != 0:
+        raise BoltRuntimeError(f"SDL2 audio failed to initialize: {_sdl2.SDL_GetError().decode('utf-8', 'replace')}")
+    _audio_initialized = True
+
+
+def _open_audio_device(freq, fmt, channels):
+    global _audio_dev, _audio_dev_spec
+    key = (freq, fmt, channels)
+    if _audio_dev is not None and _audio_dev_spec == key:
+        return _audio_dev
+    if _audio_dev is not None:
+        _sdl2.SDL_CloseAudioDevice(_audio_dev)
+        _audio_dev = None
+    desired = _SDL_AudioSpec(freq=freq, format=fmt, channels=channels, silence=0, samples=4096, padding=0, size=0, callback=None, userdata=None)
+    obtained = _SDL_AudioSpec()
+    dev = _sdl2.SDL_OpenAudioDevice(None, 0, ctypes.byref(desired), ctypes.byref(obtained), 0)
+    if dev == 0:
+        raise BoltRuntimeError(f"SDL2 audio device open failed: {_sdl2.SDL_GetError().decode('utf-8', 'replace')}")
+    _sdl2.SDL_PauseAudioDevice(dev, 0)
+    _audio_dev = dev
+    _audio_dev_spec = key
+    return dev
+
+
+def beep(freq=440, duration_ms=200):
+    """Synthesizes a sine-wave tone and plays it, blocking for
+    duration_ms - matching winsound.Beep()'s own blocking behavior so
+    scripts written against the Windows path behave the same here.
+    """
+    _ensure_audio_init()
+    sample_rate = 44100
+    dev = _open_audio_device(sample_rate, AUDIO_S16LSB, 1)
+    n_samples = max(1, int(sample_rate * duration_ms / 1000))
+    import math
+    import struct
+    amplitude = 12000
+    samples = [int(amplitude * math.sin(2 * math.pi * freq * i / sample_rate)) for i in range(n_samples)]
+    buf = struct.pack(f"<{n_samples}h", *samples)
+    _sdl2.SDL_ClearQueuedAudio(dev)
+    _sdl2.SDL_QueueAudio(dev, buf, len(buf))
+    time.sleep(duration_ms / 1000)
+
+
+def play_sound(path, wait=False):
+    """Loads and plays a real .wav file via SDL_LoadWAV_RW + SDL_QueueAudio.
+    wait=True blocks until playback finishes (computed from the WAV's own
+    sample rate/format/length); wait=False returns immediately, matching
+    winsound's SND_ASYNC.
+    """
+    _ensure_audio_init()
+    rw = _sdl2.SDL_RWFromFile(str(path).encode("utf-8"), b"rb")
+    if not rw:
+        raise BoltRuntimeError(f"play_sound(): couldn't open '{path}': {_sdl2.SDL_GetError().decode('utf-8', 'replace')}")
+    spec = _SDL_AudioSpec()
+    buf_ptr = ctypes.POINTER(ctypes.c_uint8)()
+    buf_len = ctypes.c_uint32()
+    result = _sdl2.SDL_LoadWAV_RW(rw, 1, ctypes.byref(spec), ctypes.byref(buf_ptr), ctypes.byref(buf_len))
+    if not result:
+        raise BoltRuntimeError(f"play_sound(): couldn't decode '{path}' as a WAV file: {_sdl2.SDL_GetError().decode('utf-8', 'replace')}")
+    dev = _open_audio_device(spec.freq, spec.format, spec.channels)
+    _sdl2.SDL_ClearQueuedAudio(dev)
+    _sdl2.SDL_QueueAudio(dev, buf_ptr, buf_len.value)
+    bytes_per_sample = {0x8010: 2, 0x0008: 1, 0x0010: 2}.get(spec.format, 2)  # AUDIO_S16LSB, AUDIO_U8, AUDIO_S16
+    duration_s = buf_len.value / (spec.freq * spec.channels * bytes_per_sample) if spec.freq and spec.channels else 0
+    _sdl2.SDL_FreeWAV(buf_ptr)
+    if wait:
+        time.sleep(duration_s)
+
+
+def stop_sound():
+    """Stops whatever play_sound()/beep() is currently playing."""
+    if _audio_dev is not None:
+        _sdl2.SDL_ClearQueuedAudio(_audio_dev)

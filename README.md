@@ -208,7 +208,7 @@ print(map.a)          # dot access also works on maps
 | `tick(win, fps=60)` | Pump the window and pace to `fps`; `false` once the window is closed - the game-loop condition |
 | `close_window(win)` | Close a window |
 | `rects_overlap(x1, y1, w1, h1, x2, y2, w2, h2)` / `circles_overlap(x1, y1, r1, x2, y2, r2)` | Axis-aligned box / circle collision detection |
-| `beep(freq=440, duration_ms=200)` / `play_sound(path, wait=false)` / `stop_sound()` | Real sound: a system beep, a `.wav` file, or stop playback (Windows only) |
+| `beep(freq=440, duration_ms=200)` / `play_sound(path, wait=false)` / `stop_sound()` | Real sound: a system beep, a `.wav` file, or stop playback (Windows via winsound, Linux via SDL2) |
 
 ### Built-in web server (`serve`)
 
@@ -339,8 +339,8 @@ a line; `rects_overlap(...)` / `circles_overlap(...)` are the
 axis-aligned box and circle collision checks every 2D game needs;
 `mouse_x(win)` / `mouse_y(win)` / `mouse_down(win, button)` track the
 real mouse; `beep(...)`, `play_sound(path)`, and `stop_sound()` play (and
-stop) a real system beep or `.wav` file (Windows only, via the stdlib
-`winsound` module). `examples/game_demo.bo` uses all of it together: move
+stop) a real system beep or `.wav` file (winsound on Windows, SDL2's
+audio queue on Linux). `examples/game_demo.bo` uses all of it together: move
 a sprite with the arrow keys or by holding the mouse button, collide
 with a target to score a point and hear a beep. Still deliberately
 minimal — no animation frames, no physics, no scene graph — a real step

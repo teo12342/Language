@@ -1,4 +1,4 @@
-name: Build Bolt Studio (Windows exe)
+name: Build Bolt Studio (Windows exe + Linux tarball)
 
 on:
   workflow_dispatch: {}
@@ -156,3 +156,95 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: BoltStudio-Setup-win32-x64.exe
+
+  build-linux:
+    runs-on: ubuntu-22.04
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout Bolt (this repo)
+        uses: actions/checkout@v4
+        with:
+          path: bolt-repo
+
+      - name: Clone VSCodium build tooling
+        run: git clone --depth 1 https://github.com/VSCodium/vscodium.git vscodium-src
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: vscodium-src/.nvmrc
+
+      - name: Setup Python 3
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install native build dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libx11-dev libxkbfile-dev libsecret-1-dev libkrb5-dev fakeroot rpm
+
+      - name: Apply Bolt Studio branding
+        run: cp bolt-repo/editor/branding/product.json vscodium-src/product.json
+
+      - name: Fetch upstream VS Code source
+        working-directory: vscodium-src
+        env:
+          CI_BUILD: "no"
+          VSCODE_QUALITY: stable
+          OS_NAME: linux
+          VSCODE_ARCH: x64
+        run: ./get_repo.sh
+
+      - name: Bake in Bolt language support
+        run: |
+          rm -rf vscodium-src/vscode/extensions/bolt-lang
+          cp -r bolt-repo/editor/vscode-bolt vscodium-src/vscode/extensions/bolt-lang
+
+      - name: Build Bolt Studio
+        working-directory: vscodium-src
+        env:
+          CI_BUILD: "no"
+          VSCODE_QUALITY: stable
+          SHOULD_BUILD: "yes"
+          SHOULD_BUILD_REH: "no"
+          SHOULD_BUILD_REH_WEB: "no"
+          OS_NAME: linux
+          VSCODE_ARCH: x64
+          NODE_OPTIONS: "--max-old-space-size=8192"
+        run: ./build.sh
+
+      - name: Package the portable tarball
+        run: |
+          set -ex
+          mkdir -p BoltStudio-linux-x64
+          mv VSCode-linux-x64 BoltStudio-linux-x64/
+          cp ../bolt-repo/editor/linux/install.sh BoltStudio-linux-x64/
+          chmod +x BoltStudio-linux-x64/install.sh
+          chmod +x BoltStudio-linux-x64/VSCode-linux-x64/bin/codium
+          tar czf ../BoltStudio-linux-x64.tar.gz BoltStudio-linux-x64
+
+      - name: Verify the tarball exists
+        run: |
+          set -ex
+          if [ ! -f "BoltStudio-linux-x64.tar.gz" ]; then
+            echo "::error::Packaging did not produce BoltStudio-linux-x64.tar.gz - check the 'Package the portable tarball' step's output."
+            find . -maxdepth 2 -iname "*.tar.gz"
+            exit 1
+          fi
+          ls -la BoltStudio-linux-x64.tar.gz
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: BoltStudio-linux-x64
+          path: BoltStudio-linux-x64.tar.gz
+          retention-days: 30
+
+      - name: Attach to GitHub release
+        if: startsWith(github.ref, 'refs/tags/bolt-studio-v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: BoltStudio-linux-x64.tar.gz

@@ -670,25 +670,44 @@ def _circles_overlap(x1, y1, r1, x2, y2, r2):
 
 
 def _beep(freq=440, duration_ms=200):
-    """A real system beep at a given frequency (Hz) and duration (ms) -
-    Windows only (winsound is a Windows-only stdlib module); raises a
-    clear error elsewhere instead of silently doing nothing."""
+    """A real system beep at a given frequency (Hz) and duration (ms).
+    Uses winsound on Windows (ships with Python's stdlib there); on
+    Linux, falls back to a synthesized tone played through SDL2's audio
+    queue (sdl_backend.py - the same SDL2 already used for rendering),
+    so this works without any extra install on either platform. Raises
+    a clear error only if neither path is available (e.g. Linux without
+    SDL2's runtime packages installed).
+    """
     try:
         import winsound
     except ImportError:
-        raise BoltRuntimeError("beep() needs winsound, which is Windows-only")
+        if sdl_backend.available():
+            sdl_backend.beep(freq, duration_ms)
+            return None
+        raise BoltRuntimeError(
+            "beep() needs either winsound (Windows) or SDL2 (Linux - "
+            "install libsdl2-2.0-0 libsdl2-gfx-1.0-0 libsdl2-image-2.0-0)"
+        )
     winsound.Beep(int(freq), int(duration_ms))
     return None
 
 
 def _play_sound(path, wait=False):
-    """Plays a real .wav file. Windows only (winsound); raises a clear
-    error elsewhere. `wait=true` blocks until playback finishes,
-    otherwise it plays in the background so the game loop keeps running."""
+    """Plays a real .wav file. Uses winsound on Windows; on Linux, falls
+    back to SDL2's audio queue (same fallback as beep() above).
+    `wait=true` blocks until playback finishes, otherwise it plays in
+    the background so the game loop keeps running.
+    """
     try:
         import winsound
     except ImportError:
-        raise BoltRuntimeError("play_sound() needs winsound, which is Windows-only")
+        if sdl_backend.available():
+            sdl_backend.play_sound(path, wait)
+            return None
+        raise BoltRuntimeError(
+            "play_sound() needs either winsound (Windows) or SDL2 (Linux - "
+            "install libsdl2-2.0-0 libsdl2-gfx-1.0-0 libsdl2-image-2.0-0)"
+        )
     flags = winsound.SND_FILENAME
     flags |= 0 if wait else winsound.SND_ASYNC
     winsound.PlaySound(path, flags)
@@ -697,11 +716,18 @@ def _play_sound(path, wait=False):
 
 def _stop_sound():
     """Stops whatever play_sound() is currently playing asynchronously.
-    Windows only (winsound); raises a clear error elsewhere."""
+    Uses winsound on Windows; falls back to SDL2 on Linux, same as
+    beep()/play_sound() above."""
     try:
         import winsound
     except ImportError:
-        raise BoltRuntimeError("stop_sound() needs winsound, which is Windows-only")
+        if sdl_backend.available():
+            sdl_backend.stop_sound()
+            return None
+        raise BoltRuntimeError(
+            "stop_sound() needs either winsound (Windows) or SDL2 (Linux - "
+            "install libsdl2-2.0-0 libsdl2-gfx-1.0-0 libsdl2-image-2.0-0)"
+        )
     winsound.PlaySound(None, winsound.SND_PURGE)
     return None
 
