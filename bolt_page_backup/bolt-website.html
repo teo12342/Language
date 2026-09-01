@@ -409,7 +409,7 @@ footer a { color: var(--muted); }
         <a class="btn btn-secondary" href="#" onclick="showTab('compare');return false;">See the comparisons</a>
       </div>
       <div class="hero-meta">
-        <span><span class="dot-live"></span> v0.21.0 &middot; actively developed</span>
+        <span><span class="dot-live"></span> v0.24.0 &middot; actively developed</span>
         <span>MIT licensed</span>
         <span>github.com/teo12342/Language</span>
       </div>
@@ -973,7 +973,7 @@ node fibonacci.js</code></pre>
         </div>
         <div class="rating-card">
           <div class="rating-title">Game development</div>
-          <div class="rating-why">C++ remains the industry standard, while JavaScript and Python have mature game libraries. Bolt now has native Preview without Python, SDL2 rendering on Windows/Linux, sprites, audio, particles, tilemaps, collision helpers, reusable game2d bodies, floor resolution, and acceleration-based movement. The score remains 5/10 because the ecosystem, editor tooling, and production engine depth still need real-world proof.</div>
+          <div class="rating-why">C++ remains the industry standard, while JavaScript and Python have mature game libraries. Bolt now has native Preview without Python, SDL2 rendering on Windows/Linux, sprites, audio, particles, tilemaps, camera/viewport support, physics, axis-separated platform collision resolution with grounded jumps, reusable game2d worlds and entities, and time-based looping sprite animation. After the tested toolkit upgrade, the honest score is 7/10 for building small 2D games. It is not 10/10: the ecosystem, editor tooling, scene graph, level/tileset pipeline, production engine depth, and shipped-game proof are still limited.</div>
           <div class="rating-row cpp winner"><span class="rating-who">C++</span><span class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;&#9733;&#9733;&#9733;&#9733;&#9733;</span><span class="rating-score">10/10</span><span class="winner-badge">best</span></div>
           <div class="rating-row js"><span class="rating-who">JavaScript</span><span class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;&#9733;&#9734;&#9734;&#9734;&#9734;</span><span class="rating-score">6/10</span></div>
           <div class="rating-row python"><span class="rating-who">Python</span><span class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;&#9734;&#9734;&#9734;&#9734;&#9734;</span><span class="rating-score">5/10</span></div>
@@ -1009,7 +1009,7 @@ node fibonacci.js</code></pre>
         <div class="version-item"><span class="version-tl-badge">v0.15.0</span><div class="version-desc">Fixed a real VM bug: deep recursion crashed with RecursionError at ~1000 levels (now handles 50,000+). A correctness fix, not a speed win — fib(30) on the default engine is still ~17s.</div></div>
         <div class="version-item"><span class="version-tl-badge">v0.16.0</span><div class="version-desc">mouse_x()/mouse_y()/mouse_down(), line(), and stop_sound() — a real bare-metal 2D toolkit checklist for game dev.</div></div>
         <div class="version-item"><span class="version-tl-badge">v0.17.0</span><div class="version-desc">Previous release.</div></div>
-        <div class="version-item current"><span class="version-tl-badge">v0.21.0</span><div class="version-desc">Real Linux support: SDL2 rendering and audio now load the system's own SDL2 on Linux instead of only bundled Windows DLLs, beep()/play_sound()/stop_sound() work cross-platform via SDL2's audio queue, and Bolt Studio gained a Linux build + a real no-root install.sh. Current release.</div></div>
+        <div class="version-item current"><span class="version-tl-badge">v0.24.0</span><div class="version-desc">Game-development upgrade: reusable collision resolution, grounded jumps, world/entity loops, and time-based looping sprite animation, covered by regression tests. Current release.</div></div>
         <div class="version-item"><span class="version-tl-badge">v0.20.0</span><div class="version-desc">A camera/viewport and tilemap rendering for level-building: set_camera() offsets every drawing call, draw_tilemap() renders a whole level from one nested list in a single call, and both work identically on either rendering backend.</div></div>
         <div class="version-item"><span class="version-tl-badge">v0.19.0</span><div class="version-desc">Real GPU-accelerated rendering: a new SDL2 backend takes over every drawing/sprite builtin on Windows (tkinter kept as an automatic fallback), a ctypes pointer-truncation crash and a wrong-by-default color channel order found and fixed along the way.</div></div>
         <div class="version-item"><span class="version-tl-badge">v0.18.0</span><div class="version-desc">Sprite animation, audio channel mixing, basic 2D physics, and a scene/state stack for games — plus a real cross-module closure bug found and fixed in the VM along the way.</div></div>
