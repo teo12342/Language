@@ -217,6 +217,16 @@ jobs:
         run: ./build.sh
 
       - name: Package the portable tarball
+        # VSCodium's build.sh (run with working-directory: vscodium-src
+        # above) writes its output there too, as VSCode-linux-x64/ - not
+        # at the workspace root. The first real run of this job failed
+        # here with "mv: cannot stat 'VSCode-linux-x64': No such file or
+        # directory" because this step was missing the matching
+        # working-directory, so it ran from the workspace root instead
+        # (where the Windows job's Inno Setup step gets away with this
+        # implicitly, via a path relative to vscodium-src/bolt-studio.iss
+        # instead of the shell's cwd).
+        working-directory: vscodium-src
         run: |
           set -ex
           mkdir -p BoltStudio-linux-x64
