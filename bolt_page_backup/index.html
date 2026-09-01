@@ -1,1 +1,85 @@
-FILE_CONTENT_REF
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bolt Language</title>
+</head>
+<body>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
+<style>
+:root {
+  --ink: #1b1712;
+  --paper: #f6f1e7;
+  --paper-raised: #efe7d6;
+  --line: #ddd0b3;
+  --muted: #6f6656;
+  --bolt: #b5502e;
+  --bolt-bright: #d9663c;
+  --python: #2f6f6b;
+  --js: #a3841f;
+  --c: #3f5f8a;
+  --cpp: #7a4f9e;
+  --good: #3d7a4a;
+  --star-on: #c8932f;
+  --star-off: #ddd0b3;
+  --shadow: 0 12px 32px -12px rgba(27,23,18,0.28);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ink: #ece5d6;
+    --paper: #171410;
+    --paper-raised: #211d17;
+    --line: #3a3327;
+    --muted: #a89d86;
+    --bolt: #e2895f;
+    --bolt-bright: #f0a578;
+    --python: #6fc1ba;
+    --js: #d9bb5a;
+    --c: #86a9d9;
+    --cpp: #c19be0;
+    --good: #7bc98c;
+    --star-on: #e0b355;
+    --star-off: #3a3327;
+    --shadow: 0 12px 32px -12px rgba(0,0,0,0.55);
+  }
+}
+:root[data-theme="dark"] {
+  --ink: #ece5d6;
+  --paper: #171410;
+  --paper-raised: #211d17;
+  --line: #3a3327;
+  --muted: #a89d86;
+  --bolt: #e2895f;
+  --bolt-bright: #f0a578;
+  --python: #6fc1ba;
+  --js: #d9bb5a;
+  --c: #86a9d9;
+  --cpp: #c19be0;
+  --good: #7bc98c;
+  --star-on: #e0b355;
+  --star-off: #3a3327;
+  --shadow: 0 12px 32px -12px rgba(0,0,0,0.55);
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: "IBM Plex Sans", -apple-system, "Segoe UI", sans-serif;
+  line-height: 1.55;
+}
+code, .mono { font-family: "IBM Plex Mono", ui-monospace, monospace; }
+code.inline-c {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  background: var(--paper-raised); border: 1px solid var(--line); border-radius: 4px;
+  padding: 1px 5px; font-size: 0.92em; color: var(--bolt);
+}
+
+/* placeholder-note-remove */
+</style>
+<div>PLACEHOLDER_CONTENT_MARKER_DO_NOT_USE</div>
+</body>
+</html>
