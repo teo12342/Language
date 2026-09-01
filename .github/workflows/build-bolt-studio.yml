@@ -41,12 +41,18 @@ jobs:
       - name: Apply Bolt Studio branding
         run: cp bolt-repo/editor/branding/product.json vscodium-src/product.json
 
-      - name: Setup MSVC for the native interpreter
-        uses: ilammy/msvc-dev-cmd@v1
-
       - name: Build native nboltc.exe
+        # Deliberately NOT using ilammy/msvc-dev-cmd here: that action
+        # writes its PATH/env changes to $GITHUB_ENV, which persists to
+        # every later step in this job - confirmed by a real failure
+        # here, where it broke link.exe for the Rust crates (serde_core,
+        # proc-macro2, quote) VSCodium's own "Build Bolt Studio" step
+        # compiles further down. Instead, call vcvars64.bat inside this
+        # one cmd.exe session only, so its environment changes never
+        # leak past this single step.
         shell: cmd
         run: |
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
           cd bolt-repo\native
           cl /O2 /nologo bolt.c /Fe:nboltc.exe user32.lib gdi32.lib winmm.lib /link /STACK:67108864
 
