@@ -3,6 +3,8 @@ name: Build Bolt Studio (Windows exe + Linux tarball)
 on:
   workflow_dispatch: {}
   push:
+    branches:
+      - main
     tags:
       - "bolt-studio-v*"
   pull_request:
