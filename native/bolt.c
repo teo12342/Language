@@ -4,9 +4,9 @@
  * This does NOT depend on Python at runtime. It is a separate,
  * from-scratch tree-walking interpreter covering a real subset of
  * the Bolt language: numbers, strings, booleans, nil, lists, maps,
- * functions/closures, control flow, and native game-dev builtins
- * (window/draw/input/sound) on two backends - Win32 GDI on Windows,
- * SDL2 on Linux.
+ * functions/closures, control flow, and a Win32-native game-dev
+ * builtin set (window/draw/input/sound) that replaces the old
+ * tkinter/winsound-backed builtins with real Win32 GDI + Beep().
  *
  * Scope, honestly: this is a new, smaller implementation, not a
  * line-for-line port of the Python VM. Things not yet in here:
@@ -17,10 +17,9 @@
  * arena-leaked for the process lifetime, which is fine for
  * short-lived scripts and games, not for long-running servers).
  *
- * Build (MSVC):        cl /O2 /nologo bolt.c /Fe:nboltc.exe user32.lib gdi32.lib winmm.lib
- * Build (gcc/Windows):  gcc -O2 -o nboltc.exe bolt.c -lgdi32 -luser32 -lwinmm
- * Build (gcc/Linux):    gcc -O2 -DBOLT_USE_SDL -o nboltc bolt.c $(sdl2-config --cflags --libs) -lm
- * Run:                  nboltc(.exe) script.bo
+ * Build (MSVC):   cl /O2 /nologo bolt.c /Fe:nboltc.exe user32.lib gdi32.lib winmm.lib
+ * Build (gcc):    gcc -O2 -o nboltc.exe bolt.c -lgdi32 -luser32 -lwinmm
+ * Run:            nboltc.exe script.bo
  */
 
 #define _CRT_SECURE_NO_WARNINGS

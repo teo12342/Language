@@ -2,6 +2,18 @@
 
 All notable changes to Bolt, by version.
 
+## Unreleased
+
+- Improved game development support in the native path: Bolt Studio Preview can
+  run `.bo` files with the bundled native interpreter instead of requiring
+  Python, and native game programs use the SDL2 backend on Linux.
+- Added native game helpers for rectangle collision checks, simple physics
+  stepping, sorting, and reversing lists.
+- Preview now reports missing interpreters and failed process starts in the
+  preview panel instead of leaving a permanent “Running…” state.
+- The game toolkit remains intentionally small; advanced editor tooling,
+  asset pipelines, and a full game engine are still future work.
+
 ## v0.21.0
 
 Real Linux support - previously the SDL2 GPU-rendering/audio path (and
