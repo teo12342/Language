@@ -124,3 +124,18 @@ def test_js_target_rejects_import_with_clear_error():
     stmts = Parser(tokens).parse()
     with pytest.raises(BoltError, match="import\\(\\) is not supported by --target js"):
         generate_js(stmts)
+
+
+def test_game2d_package_moves_and_clamps_a_body():
+    out = run_vm_and_capture(
+        """
+        let g = import("packages/game2d.bo")
+        let p = g.body(2, 3, 10, 10)
+        p["vx"] = 5
+        p["ay"] = 10
+        g.move(p, 0.1)
+        g.keep_inside(p, 0, 0, 20, 20)
+        print(p["x"], p["y"])
+        """
+    )
+    assert out.strip() == "2.5 3.1"

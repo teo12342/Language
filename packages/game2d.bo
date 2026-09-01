@@ -1,0 +1,34 @@
+# game2d: reusable, engine-independent 2D game primitives.
+# These are plain Bolt maps and functions, so they work with the VM, native
+# Preview, and future backends without locking games to one renderer.
+
+func vec2(x, y) {
+    return {"x": x, "y": y}
+}
+
+func body(x, y, w, h) {
+    return {"x": x, "y": y, "w": w, "h": h, "vx": 0, "vy": 0,
+        "ax": 0, "ay": 0, "grounded": false}
+}
+
+func move(b, dt) {
+    let state = physics_step(b["x"], b["y"], b["vx"], b["vy"], b["ax"], b["ay"], dt)
+    b["x"] = state[0]
+    b["y"] = state[1]
+    return b
+}
+
+func overlaps(a, b) {
+    return rects_overlap(a["x"], a["y"], a["w"], a["h"], b["x"], b["y"], b["w"], b["h"])
+}
+
+func keep_inside(b, left, top, right, bottom) {
+    b["x"] = clamp(b["x"], left, right - b["w"])
+    b["y"] = clamp(b["y"], top, bottom - b["h"])
+    return b
+}
+
+func draw_body(win, b, color) {
+    rect(win, b["x"], b["y"], b["w"], b["h"], color)
+    return nil
+}
