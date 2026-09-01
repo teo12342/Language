@@ -200,3 +200,18 @@ def test_game2d_world_steps_and_draws_registered_bodies():
         """
     )
     assert out.strip() == "1 10 true"
+
+
+def test_game2d_animator_advances_and_wraps_frames_by_time():
+    out = run_vm_and_capture(
+        """
+        let g = import("packages/game2d.bo")
+        let sheet = load_spritesheet("examples/run_sheet.png", 16, 16)
+        let a = g.animator(sheet, 10)
+        g.step_animator(a, 0.25)
+        print(a["frame"])
+        g.step_animator(a, 0.25)
+        print(a["frame"])
+        """
+    )
+    assert out.strip().splitlines() == ["2", "0"]

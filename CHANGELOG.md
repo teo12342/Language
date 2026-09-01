@@ -14,6 +14,12 @@ All notable changes to Bolt, by version.
 - The game toolkit remains intentionally small; advanced editor tooling,
   asset pipelines, and a full game engine are still future work.
 
+## v0.24.0
+
+- Added `game2d.animator()`, `step_animator()`, and `draw_animator()` for
+  time-based, looping sprite animation without hand-written frame timers.
+- Added regression coverage against a real checked-in sprite sheet.
+
 ## v0.23.0
 
 - Added `game2d.world()`, `add_body()`, `step_world()`, and `draw_world()`

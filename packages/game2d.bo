@@ -116,6 +116,28 @@ func draw_world(win, w, color) {
     return nil
 }
 
+func animator(sheet, fps) {
+    return {"sheet": sheet, "fps": fps, "frame": 0, "elapsed": 0}
+}
+
+func step_animator(a, dt) {
+    a["elapsed"] = a["elapsed"] + dt
+    let frame_time = 1 / a["fps"]
+    while a["elapsed"] >= frame_time {
+        a["elapsed"] = a["elapsed"] - frame_time
+        a["frame"] = a["frame"] + 1
+        if a["frame"] >= sprite_frame_count(a["sheet"]) {
+            a["frame"] = 0
+        }
+    }
+    return a
+}
+
+func draw_animator(win, a, x, y) {
+    draw_sprite(win, a["sheet"], a["frame"], x, y)
+    return nil
+}
+
 func draw_body(win, b, color) {
     rect(win, b["x"], b["y"], b["w"], b["h"], color)
     return nil
