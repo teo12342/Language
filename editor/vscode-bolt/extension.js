@@ -196,6 +196,32 @@ function activate(context) {
     panel.webview.html = previewHtml(url, title);
   }
 
+  function openHtmlFile(file, title) {
+    // Chromium webviews cannot reliably navigate an iframe to file:// URLs.
+    // That made the HTML Preview appear as a blank pane even though the file
+    // itself was valid. Embed the saved document as base64 in the webview so
+    // local HTML and its inline scripts render without depending on file://.
+    let source;
+    try {
+      source = fs.readFileSync(file, 'utf8');
+    } catch (err) {
+      vscode.window.showErrorMessage(`Could not read HTML preview: ${err.message}`);
+      return;
+    }
+    const encoded = Buffer.from(source, 'utf8').toString('base64');
+    const safeTitle = escapeHtml(title || 'Preview');
+    if (!panel) {
+      panel = vscode.window.createWebviewPanel('boltPreview', safeTitle,
+        { viewColumn: vscode.ViewColumn.Beside, preserveFocus: true },
+        { enableScripts: true, retainContextWhenHidden: true });
+      panel.onDidDispose(() => { panel = undefined; });
+    } else {
+      panel.title = safeTitle;
+      panel.reveal(vscode.ViewColumn.Beside, true);
+    }
+    panel.webview.html = `<!DOCTYPE html><html><body style="margin:0;height:100%;overflow:hidden"><iframe id="frame" style="width:100%;height:100%;border:0"></iframe><script>document.getElementById('frame').srcdoc=atob('${encoded}');</script></body></html>`;
+  }
+
   const CONSOLE_HTML = `<!DOCTYPE html>
 <html>
 <head>
@@ -262,7 +288,7 @@ function activate(context) {
 
     // HTML needs no process at all - preview the file directly.
     if (langId === 'html') {
-      openPreview(vscode.Uri.file(file).toString(), 'Preview: ' + path.basename(file));
+      openHtmlFile(file, 'Preview: ' + path.basename(file));
       return;
     }
 
