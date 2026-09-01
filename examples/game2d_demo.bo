@@ -1,0 +1,28 @@
+# game2d module demo: a small physics sandbox using reusable bodies.
+let game = import("packages/game2d.bo")
+let win = window(640, 360, "Bolt 2D Physics Demo")
+let player = game.body(80, 80, 32, 32)
+player["vx"] = 120
+player["ay"] = 500
+let wall = game.body(300, 260, 180, 30)
+
+while tick(win, 60) {
+    let dt = 0.016
+    if key(win, "left") { player["vx"] = -120 }
+    if key(win, "right") { player["vx"] = 120 }
+    if key(win, "space") and player["grounded"] { player["vy"] = -260 }
+    player = game.move(player, dt)
+    player["grounded"] = false
+    if game.overlaps(player, wall) and player["vy"] > 0 {
+        player["y"] = wall["y"] - player["h"]
+        player["vy"] = 0
+        player["grounded"] = true
+    }
+    player = game.keep_inside(player, 0, 0, 640, 360)
+
+    clear(win, "#101827")
+    game.draw_body(win, wall, "#3f5f8a")
+    game.draw_body(win, player, "#e2895f")
+    draw_text(win, 16, 16, "Arrows move · Space jumps", "#f6f1e7")
+}
+close_window(win)
