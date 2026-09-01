@@ -403,7 +403,7 @@ footer a { color: var(--muted); }
         <a class="btn btn-secondary" href="#" onclick="showTab('compare');return false;">See the comparisons</a>
       </div>
       <div class="hero-meta">
-        <span><span class="dot-live"></span> v0.20.0 &middot; actively developed</span>
+        <span><span class="dot-live"></span> v0.21.0 &middot; actively developed</span>
         <span>MIT licensed</span>
         <span>github.com/teo12342/Language</span>
       </div>
@@ -859,6 +859,7 @@ node fibonacci.js</code></pre>
           <h3>Game development toolkit</h3>
           <p><code class="inline-c">window(width, height, title)</code> opens a real on-screen window — GPU-accelerated via a bundled SDL2 renderer on Windows, falling back automatically to a tkinter software canvas anywhere that isn't available. <code class="inline-c">tick(win, fps)</code> pumps the event loop, paces to the target frame rate, and returns <code class="inline-c">false</code> once the window closes — <code class="inline-c">while tick(win, 60) { ... }</code> is the entire game loop.</p>
           <p class="muted-p">Drawing: <code class="inline-c">clear</code>, <code class="inline-c">rect</code>, <code class="inline-c">circle</code>, <code class="inline-c">line</code>, <code class="inline-c">draw_text</code>, <code class="inline-c">draw_image</code>. Collision: <code class="inline-c">rects_overlap()</code> and <code class="inline-c">circles_overlap()</code>.</p>
+          <p class="muted-p"><strong style="color:var(--ink)">New in v0.21.0:</strong> real Linux support — the SDL2 rendering backend now loads the system's own SDL2 install on Linux (<code class="inline-c">apt install libsdl2-2.0-0 libsdl2-gfx-1.0-0 libsdl2-image-2.0-0</code>) instead of only the bundled Windows DLLs, and <code class="inline-c">beep()</code>/<code class="inline-c">play_sound()</code>/<code class="inline-c">stop_sound()</code> now work on Linux too via SDL2's audio queue instead of Windows-only <code class="inline-c">winsound</code>. Verified with real execution on a real Linux machine, not just parsed. <code class="inline-c">play_channel()</code>'s true multi-channel mixing (built on the Windows Media Control Interface) remains Windows-only.</p>
           <p class="muted-p"><strong style="color:var(--ink)">New in v0.20.0:</strong> a camera/viewport (<code class="inline-c">set_camera(win, x, y)</code> — offsets every subsequent <code class="inline-c">rect</code>/<code class="inline-c">circle</code>/<code class="inline-c">line</code>/<code class="inline-c">draw_image</code>/<code class="inline-c">draw_sprite</code> call automatically, <code class="inline-c">draw_text</code> deliberately stays in screen space for HUDs) and tilemaps (<code class="inline-c">load_tileset()</code>, <code class="inline-c">draw_tile()</code>, and <code class="inline-c">draw_tilemap(win, tileset, grid, tile_w, tile_h)</code> — draws a whole level from one Bolt list-of-lists in a single call, with <code class="inline-c">-1</code> marking an empty cell). Levels pan correctly with the camera for free. See <code class="inline-c">examples/camera_tilemap_demo.bo</code>.</p>
           <p class="muted-p"><strong style="color:var(--ink)">New in v0.19.0:</strong> a real GPU-accelerated rendering backend — every drawing/sprite call now runs through SDL2's hardware-accelerated <code class="inline-c">SDL_Renderer</code> on Windows (bundled, zero extra install) instead of tkinter's software canvas, with tkinter kept as an automatic fallback everywhere else. Same public API, no script changes required. See the changelog for the real bugs (a truncated 64-bit pointer, a wrong-by-default color channel order) found and fixed while building it.</p>
           <p class="muted-p"><strong style="color:var(--ink)">New in v0.18.0:</strong> sprite animation (<code class="inline-c">load_spritesheet()</code>, <code class="inline-c">make_anim()</code>, <code class="inline-c">anim_draw()</code>), audio mixing (<code class="inline-c">play_channel()</code>/<code class="inline-c">stop_channel()</code> — multiple named channels play simultaneously via Windows MCI, unlike <code class="inline-c">play_sound()</code> which can only play one sound at a time), basic physics (<code class="inline-c">apply_gravity()</code>, <code class="inline-c">physics_step()</code>, <code class="inline-c">clamp()</code>), and a scene/state stack (<code class="inline-c">packages/scenes.bo</code>). See <code class="inline-c">examples/platformer_demo.bo</code> for all four together.</p>
@@ -893,7 +894,7 @@ node fibonacci.js</code></pre>
         <div class="chapter" id="bk-18">
           <div class="cnum">Chapter 18</div>
           <h3>What's not there yet</h3>
-          <p>Read honestly, not glossed over: no <code class="inline-c">try</code>/<code class="inline-c">catch</code> in the language itself — a runtime error is fatal, surfaced with a clear message and line number rather than recoverable. No language server (no autocomplete, no go-to-definition). No public package registry to publish to. The default VM is genuinely slow outside the native-compiled path (see Chapter 10). Tensors have no broadcasting or GPU support (rendering is a separate matter — see below). As of v0.20.0 the game-dev toolkit has a camera/viewport and tilemap rendering (see Chapter 13), on top of v0.19.0's SDL2 GPU-accelerated rendering and v0.18.0's sprite animation, audio mixing, basic physics, and a scene/state stack — still no scene *graph* (a rendering hierarchy), no tileset/level file format to import from (Tiled .tmx or similar), no shipped games, and no community around any of it.</p>
+          <p>Read honestly, not glossed over: no <code class="inline-c">try</code>/<code class="inline-c">catch</code> in the language itself — a runtime error is fatal, surfaced with a clear message and line number rather than recoverable. No language server (no autocomplete, no go-to-definition). No public package registry to publish to. The default VM is genuinely slow outside the native-compiled path (see Chapter 10). Tensors have no broadcasting or GPU support (rendering is a separate matter — see below). As of v0.21.0 the game-dev rendering/audio path (Chapter 13) works on Linux as well as Windows, on top of v0.20.0's camera/viewport and tilemap rendering, v0.19.0's SDL2 GPU-accelerated rendering, and v0.18.0's sprite animation, audio mixing, basic physics, and a scene/state stack — still no scene *graph* (a rendering hierarchy), no tileset/level file format to import from (Tiled .tmx or similar), no macOS support, no shipped games, and no community around any of it.</p>
           <p class="muted-p">None of this is hidden on the Comparisons tab either — see the full report for the same gaps stated in direct comparison to Python, JavaScript, C, and C++.</p>
         </div>
       </div>
@@ -1002,7 +1003,8 @@ node fibonacci.js</code></pre>
         <div class="version-item"><span class="version-tl-badge">v0.15.0</span><div class="version-desc">Fixed a real VM bug: deep recursion crashed with RecursionError at ~1000 levels (now handles 50,000+). A correctness fix, not a speed win — fib(30) on the default engine is still ~17s.</div></div>
         <div class="version-item"><span class="version-tl-badge">v0.16.0</span><div class="version-desc">mouse_x()/mouse_y()/mouse_down(), line(), and stop_sound() — a real bare-metal 2D toolkit checklist for game dev.</div></div>
         <div class="version-item"><span class="version-tl-badge">v0.17.0</span><div class="version-desc">Previous release.</div></div>
-        <div class="version-item current"><span class="version-tl-badge">v0.20.0</span><div class="version-desc">A camera/viewport and tilemap rendering for level-building: set_camera() offsets every drawing call, draw_tilemap() renders a whole level from one nested list in a single call, and both work identically on either rendering backend. Current release.</div></div>
+        <div class="version-item current"><span class="version-tl-badge">v0.21.0</span><div class="version-desc">Real Linux support: SDL2 rendering and audio now load the system's own SDL2 on Linux instead of only bundled Windows DLLs, beep()/play_sound()/stop_sound() work cross-platform via SDL2's audio queue, and Bolt Studio gained a Linux build + a real no-root install.sh. Current release.</div></div>
+        <div class="version-item"><span class="version-tl-badge">v0.20.0</span><div class="version-desc">A camera/viewport and tilemap rendering for level-building: set_camera() offsets every drawing call, draw_tilemap() renders a whole level from one nested list in a single call, and both work identically on either rendering backend.</div></div>
         <div class="version-item"><span class="version-tl-badge">v0.19.0</span><div class="version-desc">Real GPU-accelerated rendering: a new SDL2 backend takes over every drawing/sprite builtin on Windows (tkinter kept as an automatic fallback), a ctypes pointer-truncation crash and a wrong-by-default color channel order found and fixed along the way.</div></div>
         <div class="version-item"><span class="version-tl-badge">v0.18.0</span><div class="version-desc">Sprite animation, audio channel mixing, basic 2D physics, and a scene/state stack for games — plus a real cross-module closure bug found and fixed in the VM along the way.</div></div>
       </div>
@@ -1060,7 +1062,7 @@ node fibonacci.js</code></pre>
 
 <span class="kw">let</span> versions = [
     {<span class="str">"badge"</span>: <span class="str">"v0.7.0"</span>, <span class="str">"desc"</span>: <span class="str">"Added the built-in serve() web server."</span>, <span class="str">"current"</span>: <span class="kw">false</span>}
-    <span class="com"># ... v0.8.0 through v0.20.0 ...</span>
+    <span class="com"># ... v0.8.0 through v0.21.0 ...</span>
 ]
 <span class="kw">let</span> html = <span class="str">""</span>
 <span class="kw">for</span> v <span class="kw">in</span> versions {
@@ -1086,14 +1088,22 @@ node fibonacci.js</code></pre>
       <div class="download-sub">~153 MB &middot; unsigned build &middot; also on <a href="https://github.com/teo12342/Language/releases/tag/bolt-studio-v0.4.1" style="color:inherit" target="_blank" rel="noopener">GitHub Releases</a></div>
     </div>
 
+    <div class="download-card">
+      <div class="os-icon">&#128039; Linux &middot; x86-64</div>
+      <h3>Bolt Studio for Linux</h3>
+      <p>Same VSCodium build and Bolt branding as the Windows release, packaged as a portable tarball with a real (no-root) <code>install.sh</code> — extracts to <code>~/.local/share</code>, symlinks a launcher, and registers a desktop entry.</p>
+      <a class="download-btn" href="https://github.com/teo12342/Language/actions/workflows/build-bolt-studio.yml" target="_blank" rel="noopener">&#8681; Build via GitHub Actions</a>
+      <div class="download-sub">The CI pipeline that builds <code>BoltStudio-linux-x64.tar.gz</code> just landed — it attaches to the <em>next</em> tagged Bolt Studio release. For right now, run <code>workflow_dispatch</code> on that Action yourself, or build locally by following the same steps the workflow runs.</div>
+    </div>
+
     <div class="block">
       <h2>Install</h2>
       <div class="steps">
-        <div class="step"><div class="stepnum">01</div><h4>Download</h4><p>Get <code>BoltStudio-Setup-win32-x64.exe</code> above.</p></div>
-        <div class="step"><div class="stepnum">02</div><h4>Run the installer</h4><p>Double-click it and follow the setup wizard — no unzipping, nothing to extract.</p></div>
-        <div class="step"><div class="stepnum">03</div><h4>Launch</h4><p>Bolt Studio opens from the Start Menu (or the desktop shortcut, if you opted in) once setup finishes.</p></div>
+        <div class="step"><div class="stepnum">01</div><h4>Download</h4><p>Windows: get <code>BoltStudio-Setup-win32-x64.exe</code> above. Linux: get <code>BoltStudio-linux-x64.tar.gz</code> from a workflow run or release.</p></div>
+        <div class="step"><div class="stepnum">02</div><h4>Run the installer</h4><p>Windows: double-click it and follow the setup wizard. Linux: extract the tarball and run <code>./install.sh</code> from inside it — no root needed.</p></div>
+        <div class="step"><div class="stepnum">03</div><h4>Launch</h4><p>Windows: from the Start Menu (or desktop shortcut). Linux: run <code>bolt-studio</code> or find "Bolt Studio" in your application menu.</p></div>
       </div>
-      <div class="warn-note"><strong>Note:</strong> this build isn't code-signed, so Windows SmartScreen will likely show a warning when you run the installer. Click "More info" then "Run anyway" to proceed.</div>
+      <div class="warn-note"><strong>Note:</strong> the Windows build isn't code-signed, so SmartScreen will likely show a warning — click "More info" then "Run anyway." The Linux build is likewise unsigned/unnotarized; most distros won't warn about that the way Windows does.</div>
     </div>
 
     <div class="block">
