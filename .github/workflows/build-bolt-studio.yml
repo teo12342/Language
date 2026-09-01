@@ -5,10 +5,16 @@ on:
   push:
     tags:
       - "bolt-studio-v*"
-  pull_request:
+pull_request:
     paths:
       - "editor/**"
       - ".github/workflows/build-bolt-studio.yml"
+
+# A VSCodium build is long, but it must not leave a dead run consuming a
+# runner forever or let retries pile up behind it.
+concurrency:
+  group: bolt-studio-packaging
+  cancel-in-progress: true
 
 permissions:
   contents: write
@@ -16,6 +22,7 @@ permissions:
 jobs:
   build-windows:
     runs-on: windows-2022
+    timeout-minutes: 90
     defaults:
       run:
         shell: bash
@@ -179,6 +186,7 @@ jobs:
 
   build-linux:
     runs-on: ubuntu-22.04
+    timeout-minutes: 90
     defaults:
       run:
         shell: bash
