@@ -139,3 +139,17 @@ def test_game2d_package_moves_and_clamps_a_body():
         """
     )
     assert out.strip() == "2.5 3.1"
+
+
+def test_game2d_package_resolves_floor_and_accelerates_input():
+    out = run_vm_and_capture(
+        """
+        let g = import("packages/game2d.bo")
+        let p = g.body(0, 95, 10, 10)
+        p["vy"] = 20
+        g.resolve_floor(p, 100, 0.5)
+        g.accelerate_input(p, false, true, 100, 50, 0.1)
+        print(p["y"], p["vy"], p["vx"], p["grounded"])
+        """
+    )
+    assert out.strip() == "90 -10.0 10.0 true"

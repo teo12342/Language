@@ -28,6 +28,22 @@ func keep_inside(b, left, top, right, bottom) {
     return b
 }
 
+func accelerate_input(b, left_pressed, right_pressed, acceleration, max_speed, dt) {
+    if left_pressed { b["vx"] = b["vx"] - acceleration * dt }
+    if right_pressed { b["vx"] = b["vx"] + acceleration * dt }
+    b["vx"] = clamp(b["vx"], -max_speed, max_speed)
+    return b
+}
+
+func resolve_floor(b, floor_y, bounce) {
+    if b["y"] + b["h"] >= floor_y and b["vy"] > 0 {
+        b["y"] = floor_y - b["h"]
+        b["vy"] = -b["vy"] * bounce
+        b["grounded"] = true
+    }
+    return b
+}
+
 func draw_body(win, b, color) {
     rect(win, b["x"], b["y"], b["w"], b["h"], color)
     return nil
