@@ -238,8 +238,13 @@ jobs:
           chmod +x BoltStudio-linux-x64/install.sh
           echo "--- VSCode-linux-x64 top-level contents ---"
           ls -la BoltStudio-linux-x64/VSCode-linux-x64
-          find BoltStudio-linux-x64/VSCode-linux-x64 -maxdepth 1 -iname "codium*" -print
-          find BoltStudio-linux-x64/VSCode-linux-x64 -maxdepth 1 -iname "codium*" -exec chmod +x {} \;
+          # Confirmed by a real build: the branding's applicationName
+          # ("bolt-studio" in editor/branding/product.json) is what
+          # VSCodium actually names the Linux launcher, at the top level
+          # - not "codium", and not under bin/ (both wrongly assumed
+          # earlier, before checking a real build's output).
+          find BoltStudio-linux-x64/VSCode-linux-x64 -maxdepth 1 \( -iname "bolt-studio*" -o -iname "codium*" \) -print
+          find BoltStudio-linux-x64/VSCode-linux-x64 -maxdepth 1 \( -iname "bolt-studio*" -o -iname "codium*" \) -exec chmod +x {} \;
           tar czf ../BoltStudio-linux-x64.tar.gz BoltStudio-linux-x64
 
       - name: Verify the tarball exists

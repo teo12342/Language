@@ -32,16 +32,20 @@ rm -rf "$INSTALL_DIR"
 mkdir -p "$(dirname "$INSTALL_DIR")"
 cp -r "$APP_SRC" "$INSTALL_DIR"
 
-# VSCodium's portable Linux build doesn't always put the launcher at
-# bin/codium (that path only exists in some packaging paths) - it can
-# instead be a top-level executable named "codium". Rather than assume
-# one location, use whichever actually exists in this build.
-if [ -x "$INSTALL_DIR/bin/codium" ]; then
-  LAUNCHER="$INSTALL_DIR/bin/codium"
-elif [ -x "$INSTALL_DIR/codium" ]; then
-  LAUNCHER="$INSTALL_DIR/codium"
-else
-  echo "error: couldn't find the codium launcher under $INSTALL_DIR (checked bin/codium and codium)." >&2
+# The real build (checked directly in CI) names the Linux launcher
+# after product.json's applicationName - "bolt-studio" here, at the top
+# level of the extracted tree, not "codium" and not under bin/ (an
+# earlier version of this script wrongly assumed the upstream VSCodium
+# default naming). Still checks a couple of fallback locations rather
+# than hardcoding just the one path, in case that changes again.
+for candidate in "$INSTALL_DIR/bolt-studio" "$INSTALL_DIR/bin/bolt-studio" "$INSTALL_DIR/codium" "$INSTALL_DIR/bin/codium"; do
+  if [ -x "$candidate" ]; then
+    LAUNCHER="$candidate"
+    break
+  fi
+done
+if [ -z "${LAUNCHER:-}" ]; then
+  echo "error: couldn't find the Bolt Studio launcher under $INSTALL_DIR." >&2
   exit 1
 fi
 
@@ -58,7 +62,7 @@ Icon=bolt-studio
 Terminal=false
 Type=Application
 Categories=Development;IDE;
-StartupWMClass=codium
+StartupWMClass=bolt-studio
 EOF
 
 mkdir -p "$ICON_DIR"
