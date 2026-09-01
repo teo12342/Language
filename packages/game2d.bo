@@ -93,6 +93,29 @@ func jump(b, speed) {
     return b
 }
 
+func world(solids) {
+    return {"solids": solids, "bodies": []}
+}
+
+func add_body(w, b) {
+    push(w["bodies"], b)
+    return b
+}
+
+func step_world(w, dt) {
+    for b in w["bodies"] {
+        move_and_collide(b, w["solids"], dt)
+    }
+    return w
+}
+
+func draw_world(win, w, color) {
+    for b in w["bodies"] {
+        draw_body(win, b, color)
+    }
+    return nil
+}
+
 func draw_body(win, b, color) {
     rect(win, b["x"], b["y"], b["w"], b["h"], color)
     return nil

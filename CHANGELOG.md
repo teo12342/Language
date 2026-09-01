@@ -14,6 +14,12 @@ All notable changes to Bolt, by version.
 - The game toolkit remains intentionally small; advanced editor tooling,
   asset pipelines, and a full game engine are still future work.
 
+## v0.23.0
+
+- Added `game2d.world()`, `add_body()`, `step_world()`, and `draw_world()`
+  for a small reusable entity/world loop on top of the collision system.
+- Added regression coverage for registered-body world stepping.
+
 ## v0.22.0
 
 - Added `game2d.move_and_collide()`, a renderer-independent platformer

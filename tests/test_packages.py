@@ -184,3 +184,19 @@ def test_game2d_package_jump_only_works_when_grounded():
         """
     )
     assert out.strip().splitlines() == ["-240 false", "-240 false"]
+
+
+def test_game2d_world_steps_and_draws_registered_bodies():
+    out = run_vm_and_capture(
+        """
+        let g = import("packages/game2d.bo")
+        let floor = g.body(0, 20, 100, 10)
+        let w = g.world([floor])
+        let p = g.body(5, 0, 10, 10)
+        p["vy"] = 100
+        g.add_body(w, p)
+        g.step_world(w, 0.2)
+        print(len(w["bodies"]), p["y"], p["grounded"])
+        """
+    )
+    assert out.strip() == "1 10 true"
