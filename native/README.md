@@ -67,8 +67,9 @@ native/nboltc examples/loops.bo          # Linux
   than an error, so the same script runs on both without special-casing.
 - **Physics/collision helpers** (cross-platform, no windowing
   dependency — usable even without `window()`): `rects_overlap()`,
-  `circles_overlap()`, `clamp()`, `lerp()`, `distance()`, `random()`,
-  `apply_gravity()`, `physics_step()`.
+  `circles_overlap()`, `circle_rect_overlap()`, `clamp()`, `lerp()`,
+  `distance()`, `random()`, `apply_gravity()`, `physics_step()`, and
+  `physics_integrate()`.
   These are the same small, composable building blocks the Python
   implementation's `packages/` scripts use to build actual physics on
   top of, not a physics *engine* — see the honest gaps below.

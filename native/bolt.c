@@ -1190,6 +1190,15 @@ static Value *bolt_circles_overlap(Value **args, int nargs) {
     double dx = ax-bx, dy = ay-by, rr = ar+br;
     return mk_bool(dx*dx + dy*dy <= rr*rr);
 }
+static Value *bolt_circle_rect_overlap(Value **args, int nargs) {
+    (void)nargs;
+    double cx=args[0]->as.n, cy=args[1]->as.n, cr=fabs(args[2]->as.n);
+    double rx=args[3]->as.n, ry=args[4]->as.n, rw=args[5]->as.n, rh=args[6]->as.n;
+    double px = cx < rx ? rx : (cx > rx + rw ? rx + rw : cx);
+    double py = cy < ry ? ry : (cy > ry + rh ? ry + rh : cy);
+    double dx = cx - px, dy = cy - py;
+    return mk_bool(dx * dx + dy * dy <= cr * cr);
+}
 static Value *bolt_clamp(Value **args, int nargs) {
     (void)nargs;
     double v = args[0]->as.n, lo = args[1]->as.n, hi = args[2]->as.n;
@@ -1225,6 +1234,17 @@ static Value *bolt_physics_step(Value **args, int nargs) {
     Value *out = mk_list();
     list_push(out, mk_num(x + vx * dt));
     list_push(out, mk_num(y + vy * dt));
+    return out;
+}
+static Value *bolt_physics_integrate(Value **args, int nargs) {
+    /* physics_integrate(x,y,vx,vy,ax,ay,dt) -> [x,y,vx,vy] */
+    (void)nargs;
+    double x=args[0]->as.n, y=args[1]->as.n, vx=args[2]->as.n, vy=args[3]->as.n;
+    double ax=args[4]->as.n, ay=args[5]->as.n, dt=args[6]->as.n;
+    Value *out = mk_list();
+    vx += ax * dt; vy += ay * dt;
+    list_push(out, mk_num(x + vx * dt)); list_push(out, mk_num(y + vy * dt));
+    list_push(out, mk_num(vx)); list_push(out, mk_num(vy));
     return out;
 }
 static int value_cmp_for_sort(const void *pa, const void *pb) {
@@ -1350,12 +1370,14 @@ static Value *native_call(Env *env, const char *name, Expr **argExprs, int nargs
 #endif
     else if (strcmp(name, "rects_overlap") == 0) result = bolt_rects_overlap(args, nargs);
     else if (strcmp(name, "circles_overlap") == 0) result = bolt_circles_overlap(args, nargs);
+    else if (strcmp(name, "circle_rect_overlap") == 0) result = bolt_circle_rect_overlap(args, nargs);
     else if (strcmp(name, "clamp") == 0) result = bolt_clamp(args, nargs);
     else if (strcmp(name, "lerp") == 0) result = bolt_lerp(args, nargs);
     else if (strcmp(name, "distance") == 0) result = bolt_distance(args, nargs);
     else if (strcmp(name, "random") == 0) result = bolt_random(args, nargs);
     else if (strcmp(name, "apply_gravity") == 0) result = bolt_apply_gravity(args, nargs);
     else if (strcmp(name, "physics_step") == 0) result = bolt_physics_step(args, nargs);
+    else if (strcmp(name, "physics_integrate") == 0) result = bolt_physics_integrate(args, nargs);
     else if (strcmp(name, "sort") == 0) result = bolt_sort(args, nargs);
     else if (strcmp(name, "reverse") == 0) result = bolt_reverse(args, nargs);
 
