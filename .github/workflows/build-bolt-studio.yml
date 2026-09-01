@@ -15,7 +15,10 @@ on:
 # A VSCodium build is long, but it must not leave a dead run consuming a
 # runner forever or let retries pile up behind it.
 concurrency:
-  group: bolt-studio-packaging
+  # Keep release-tag builds independent from the continuous main-branch build.
+  # A tag push also updates the branch, so one shared group would cancel the
+  # release before it can attach its installers to the GitHub Release.
+  group: bolt-studio-packaging-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
