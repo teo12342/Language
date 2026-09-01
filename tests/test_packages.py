@@ -153,3 +153,34 @@ def test_game2d_package_resolves_floor_and_accelerates_input():
         """
     )
     assert out.strip() == "90 -10.0 10.0 true"
+
+
+def test_game2d_package_moves_through_solids_and_sets_platformer_flags():
+    out = run_vm_and_capture(
+        """
+        let g = import("packages/game2d.bo")
+        let p = g.body(5, 0, 10, 10)
+        p["vx"] = 100
+        p["vy"] = 100
+        let wall = g.body(20, 0, 10, 100)
+        let floor = g.body(0, 20, 100, 10)
+        g.move_and_collide(p, [wall, floor], 0.2)
+        print(p["x"], p["y"], p["vx"], p["vy"], p["hit_right"], p["grounded"])
+        """
+    )
+    assert out.strip() == "10 10 0 0 true true"
+
+
+def test_game2d_package_jump_only_works_when_grounded():
+    out = run_vm_and_capture(
+        """
+        let g = import("packages/game2d.bo")
+        let p = g.body(0, 0, 10, 10)
+        p["grounded"] = true
+        g.jump(p, 240)
+        print(p["vy"], p["grounded"])
+        g.jump(p, 240)
+        print(p["vy"], p["grounded"])
+        """
+    )
+    assert out.strip().splitlines() == ["-240 false", "-240 false"]

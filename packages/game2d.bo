@@ -44,6 +44,55 @@ func resolve_floor(b, floor_y, bounce) {
     return b
 }
 
+# Move a body through a list of solid rectangle bodies using axis-separated
+# collision resolution. The body keeps useful platformer state in-place:
+# grounded, hit_left, hit_right, and hit_ceiling. Solids only need x/y/w/h.
+# This is deliberately renderer-independent, so it works in VM and native
+# Preview alike.
+func move_and_collide(b, solids, dt) {
+    b["grounded"] = false
+    b["hit_left"] = false
+    b["hit_right"] = false
+    b["hit_ceiling"] = false
+
+    b["x"] = b["x"] + b["vx"] * dt
+    for solid in solids {
+        if overlaps(b, solid) {
+            if b["vx"] > 0 {
+                b["x"] = solid["x"] - b["w"]
+                b["hit_right"] = true
+            } else if b["vx"] < 0 {
+                b["x"] = solid["x"] + solid["w"]
+                b["hit_left"] = true
+            }
+            b["vx"] = 0
+        }
+    }
+
+    b["y"] = b["y"] + b["vy"] * dt
+    for solid in solids {
+        if overlaps(b, solid) {
+            if b["vy"] > 0 {
+                b["y"] = solid["y"] - b["h"]
+                b["grounded"] = true
+            } else if b["vy"] < 0 {
+                b["y"] = solid["y"] + solid["h"]
+                b["hit_ceiling"] = true
+            }
+            b["vy"] = 0
+        }
+    }
+    return b
+}
+
+func jump(b, speed) {
+    if b["grounded"] {
+        b["vy"] = -speed
+        b["grounded"] = false
+    }
+    return b
+}
+
 func draw_body(win, b, color) {
     rect(win, b["x"], b["y"], b["w"], b["h"], color)
     return nil

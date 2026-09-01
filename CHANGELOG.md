@@ -14,6 +14,15 @@ All notable changes to Bolt, by version.
 - The game toolkit remains intentionally small; advanced editor tooling,
   asset pipelines, and a full game engine are still future work.
 
+## v0.22.0
+
+- Added `game2d.move_and_collide()`, a renderer-independent platformer
+  collision helper that separates horizontal and vertical motion against a
+  list of solid rectangles and reports `grounded`, wall-hit, and ceiling-hit
+  state on the body.
+- Added `game2d.jump()` with grounded-only jump gating.
+- Added regression coverage for wall/floor resolution and jump state.
+
 ## v0.21.0
 
 Real Linux support - previously the SDL2 GPU-rendering/audio path (and
