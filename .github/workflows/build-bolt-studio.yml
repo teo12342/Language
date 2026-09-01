@@ -219,13 +219,16 @@ jobs:
       - name: Package the portable tarball
         # VSCodium's build.sh (run with working-directory: vscodium-src
         # above) writes its output there too, as VSCode-linux-x64/ - not
-        # at the workspace root. The first real run of this job failed
-        # here with "mv: cannot stat 'VSCode-linux-x64': No such file or
-        # directory" because this step was missing the matching
-        # working-directory, so it ran from the workspace root instead
-        # (where the Windows job's Inno Setup step gets away with this
-        # implicitly, via a path relative to vscodium-src/bolt-studio.iss
-        # instead of the shell's cwd).
+        # at the workspace root. A second real bug found running this for
+        # real: unlike the Windows portable build (Bolt Studio.exe sits
+        # at the top level), VSCodium's Linux min-packing output does not
+        # put the codium launcher at bin/codium - "chmod +x
+        # .../bin/codium" failed with "No such file or directory" even
+        # after the working-directory fix. Rather than hardcode a second
+        # guess at the real path, this finds whatever "codium"-named
+        # executable(s) min-packing actually produced and chmods those -
+        # the listing below also prints the real layout to the log for
+        # whoever debugs this next.
         working-directory: vscodium-src
         run: |
           set -ex
@@ -233,7 +236,10 @@ jobs:
           mv VSCode-linux-x64 BoltStudio-linux-x64/
           cp ../bolt-repo/editor/linux/install.sh BoltStudio-linux-x64/
           chmod +x BoltStudio-linux-x64/install.sh
-          chmod +x BoltStudio-linux-x64/VSCode-linux-x64/bin/codium
+          echo "--- VSCode-linux-x64 top-level contents ---"
+          ls -la BoltStudio-linux-x64/VSCode-linux-x64
+          find BoltStudio-linux-x64/VSCode-linux-x64 -maxdepth 1 -iname "codium*" -print
+          find BoltStudio-linux-x64/VSCode-linux-x64 -maxdepth 1 -iname "codium*" -exec chmod +x {} \;
           tar czf ../BoltStudio-linux-x64.tar.gz BoltStudio-linux-x64
 
       - name: Verify the tarball exists

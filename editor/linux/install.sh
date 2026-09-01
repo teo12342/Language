@@ -32,15 +32,28 @@ rm -rf "$INSTALL_DIR"
 mkdir -p "$(dirname "$INSTALL_DIR")"
 cp -r "$APP_SRC" "$INSTALL_DIR"
 
+# VSCodium's portable Linux build doesn't always put the launcher at
+# bin/codium (that path only exists in some packaging paths) - it can
+# instead be a top-level executable named "codium". Rather than assume
+# one location, use whichever actually exists in this build.
+if [ -x "$INSTALL_DIR/bin/codium" ]; then
+  LAUNCHER="$INSTALL_DIR/bin/codium"
+elif [ -x "$INSTALL_DIR/codium" ]; then
+  LAUNCHER="$INSTALL_DIR/codium"
+else
+  echo "error: couldn't find the codium launcher under $INSTALL_DIR (checked bin/codium and codium)." >&2
+  exit 1
+fi
+
 mkdir -p "$BIN_DIR"
-ln -sf "$INSTALL_DIR/bin/codium" "$BIN_DIR/bolt-studio"
+ln -sf "$LAUNCHER" "$BIN_DIR/bolt-studio"
 
 mkdir -p "$DESKTOP_DIR"
 cat > "$DESKTOP_DIR/bolt-studio.desktop" <<EOF
 [Desktop Entry]
 Name=Bolt Studio
 Comment=Editor for the Bolt programming language
-Exec=$INSTALL_DIR/bin/codium %F
+Exec=$LAUNCHER %F
 Icon=bolt-studio
 Terminal=false
 Type=Application
