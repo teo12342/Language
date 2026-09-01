@@ -346,6 +346,13 @@ with a target to score a point and hear a beep. Still deliberately
 minimal — no animation frames, no physics, no scene graph — a real step
 toward game dev, not a game engine.
 
+The native Studio path also includes `examples/native_game_template.bo`, a
+ready-to-preview starter using the bundled interpreter. It demonstrates a
+stable game loop, input, clamping, interpolation, and distance-based game
+logic without requiring Python. `window_size(win)` returns `[width, height]`;
+`lerp(a, b, t)`, `distance(x1, y1, x2, y2)`, and `random(lo, hi)` provide
+common game-loop math.
+
 ### Native compilation (`--native`)
 
 Any top-level `func` whose parameters *and* return type are all annotated

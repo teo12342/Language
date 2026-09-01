@@ -1,0 +1,25 @@
+# Native game starter template for Bolt Studio.
+# Preview this file directly: it uses the bundled native interpreter.
+
+let win = window(800, 450, "Bolt Forge Starter")
+let x = 120
+let y = 210
+let speed = 260
+let target_x = 400
+
+while tick(win, 60) {
+    let dt = 0.016
+    if key(win, "left") { x = x - speed * dt }
+    if key(win, "right") { x = x + speed * dt }
+    x = clamp(x, 20, 740)
+    target_x = lerp(target_x, x, 0.04)
+
+    clear(win, "#101827")
+    rect(win, 0, 390, 800, 60, "#1e3854")
+    circle(win, target_x, 210, 34, "#e2895f")
+    rect(win, x - 22, y - 22, 44, 44, "#6fc1ba")
+    draw_text(win, 24, 28, "Arrow keys move the player", "#f6f1e7")
+    draw_text(win, 24, 52, "distance: " + str(distance(x, y, target_x, 210)), "#a89d86")
+}
+
+close_window(win)
