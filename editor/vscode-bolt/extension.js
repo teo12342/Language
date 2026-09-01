@@ -270,6 +270,27 @@ function activate(context) {
     panel.webview.html = CONSOLE_HTML;
   }
 
+  // Preview processes can emit many tiny chunks per frame. Posting each one
+  // synchronously made the webview and extension host do needless work and
+  // could make Studio feel laggy during noisy games. Coalesce output into a
+  // small frame-sized batch while keeping the OutputChannel lossless.
+  let previewTextQueue = '';
+  let previewTextTimer;
+  function postPreviewText(text) {
+    previewTextQueue += text;
+    if (previewTextTimer) return;
+    previewTextTimer = setTimeout(() => {
+      previewTextTimer = undefined;
+      if (panel && previewTextQueue) {
+        const queued = previewTextQueue;
+        previewTextQueue = '';
+        panel.webview.postMessage({ type: 'append', text: queued });
+      } else {
+        previewTextQueue = '';
+      }
+    }, 16);
+  }
+
   const RUNNABLE_LANGUAGES = new Set(['bolt', 'python', 'javascript', 'javascriptreact', 'typescript', 'typescriptreact']);
   const PORT_RE = /(?:localhost|127\.0\.0\.1):(\d{2,5})/i;
 
@@ -341,10 +362,14 @@ function activate(context) {
 
     killChild();
     output.clear();
+    previewTextQueue = '';
     openConsole('Preview: ' + path.basename(file));
 
     output.appendLine(`$ ${cmd} ${args.join(' ')}\n`);
-    child = cp.spawn(cmd, args, { cwd, shell: process.platform === 'win32' });
+    // All supported commands are executable paths or normal PATH commands;
+    // shell=true adds a cmd.exe hop on Windows, slows startup, and introduces
+    // quoting surprises for paths with spaces. Native spawning is sufficient.
+    child = cp.spawn(cmd, args, { cwd, windowsHide: true });
 
     let opened = false;
     const tryOpenFromOutput = (text) => {
@@ -362,24 +387,30 @@ function activate(context) {
     child.stdout.on('data', (data) => {
       const text = data.toString();
       output.append(text);
-      if (panel) panel.webview.postMessage({ type: 'append', text });
+      postPreviewText(text);
       tryOpenFromOutput(text);
     });
     child.stderr.on('data', (data) => {
       const text = data.toString();
       output.append(text);
-      if (panel) panel.webview.postMessage({ type: 'append', text });
+      postPreviewText(text);
     });
     child.on('close', (code) => {
       output.appendLine(`\n[process exited with code ${code}]`);
       // Only meaningful if we're still showing the console (a detected
       // server swapped the panel's HTML to the live iframe already).
-      if (panel && !opened) panel.webview.postMessage({ type: 'done', ok: code === 0, code });
+      if (panel && !opened) {
+        // Let the queued final stdout/stderr batch arrive before changing the
+        // status line, so the last error is visible above the exit code.
+        setTimeout(() => {
+          if (panel) panel.webview.postMessage({ type: 'done', ok: code === 0, code });
+        }, 20);
+      }
     });
     child.on('error', (err) => {
       output.appendLine(`\n[failed to start "${cmd}": ${err.message}]`);
       if (panel) {
-        panel.webview.postMessage({ type: 'append', text: `\n[failed to start "${cmd}": ${err.message}]` });
+        postPreviewText(`\n[failed to start "${cmd}": ${err.message}]`);
         // Without this the header stays stuck on "Running..." forever -
         // 'close' never fires for a process that never started.
         if (!opened) panel.webview.postMessage({ type: 'done', ok: false, code: -1 });
