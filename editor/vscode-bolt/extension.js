@@ -280,13 +280,27 @@ function activate(context) {
     // nothing ever posted a 'done' message to it.
     let cmd, args;
     if (langId === 'bolt') {
-      const cliPath = path.join(cwd, 'cli.py');
-      if (fs.existsSync(cliPath)) {
-        cmd = 'python';
-        args = [cliPath, file];
+      // Prefer the native interpreter bundled with Bolt Studio itself
+      // (no Python needed, no workspace-layout requirement) - this is
+      // what makes Preview work for a plain standalone Studio install
+      // with no cli.py anywhere nearby, which was a real, silent
+      // failure mode before: a user with just the installed app and a
+      // .bo file open (no Language repo checked out as their
+      // workspace) got only a warning toast and nothing else.
+      const nativeName = process.platform === 'win32' ? 'nboltc.exe' : 'nboltc';
+      const nativePath = path.join(context.extensionPath, 'bin', nativeName);
+      if (fs.existsSync(nativePath)) {
+        cmd = nativePath;
+        args = [file];
       } else {
-        vscode.window.showWarningMessage("No cli.py found in this workspace's root - can't run the Bolt script. Open the Bolt language repo as your workspace folder.");
-        return;
+        const cliPath = path.join(cwd, 'cli.py');
+        if (fs.existsSync(cliPath)) {
+          cmd = 'python';
+          args = [cliPath, file];
+        } else {
+          vscode.window.showWarningMessage("Can't run this Bolt script: no bundled native interpreter found, and no cli.py in this workspace's root either. Open the Bolt language repo as your workspace folder, or reinstall Bolt Studio.");
+          return;
+        }
       }
     } else if (langId === 'python') {
       cmd = 'python';

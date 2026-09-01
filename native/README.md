@@ -18,10 +18,29 @@ or manually from a VS Developer prompt:
 cl /O2 bolt.c /Fe:nboltc.exe user32.lib gdi32.lib winmm.lib /link /STACK:67108864
 ```
 
+## Build (Linux, gcc + SDL2)
+
+Needs SDL2 dev headers (`apt install libsdl2-dev` or equivalent):
+
+```
+bash native/build-linux.sh
+```
+
+or manually:
+
+```
+gcc -O2 -DBOLT_USE_SDL -o nboltc bolt.c $(sdl2-config --cflags --libs) -lm
+```
+
+Without `-DBOLT_USE_SDL`, the game-dev builtins (`window()`, `tick()`,
+etc.) aren't compiled in on non-Windows builds and calling them fails
+with a clear `undefined name` error rather than a crash.
+
 ## Run
 
 ```
-native\nboltc.exe examples\loops.bo
+native\nboltc.exe examples\loops.bo      # Windows
+native/nboltc examples/loops.bo          # Linux
 ```
 
 ## What works today (verified against the Python implementation's output)
@@ -35,13 +54,23 @@ native\nboltc.exe examples\loops.bo
   50,000+ levels with the bundled 64MB stack — see `/STACK` above)
 - Core builtins: `print`, `len`, `type`, `range`, `push`, `pop`,
   `keys`, `str`, `num`, `upper`, `lower`, `trim`, `sqrt`, `abs`,
-  `floor`, `ceil`, `min`, `max`
-- **Native Win32 game-dev builtins** (replacing the old
-  tkinter/winsound-backed ones — real GDI, no dependency install
-  needed): `window()`, `tick()`, `clear()`, `rect()`, `circle()`,
-  `line()`, `draw_text()`, `key()`, `mouse_x()`/`mouse_y()`/
-  `mouse_down()`, `close_window()`, `beep()`, `rects_overlap()`.
-  Verified end-to-end: opens a real window, draws, and self-closes.
+  `floor`, `ceil`, `min`, `max`, `sort`, `reverse`
+- **Native game-dev builtins**, on two backends with the same
+  function names/signatures on both:
+  - **Windows**: real Win32 GDI, no dependency install needed.
+  - **Linux**: SDL2 (`-DBOLT_USE_SDL`, needs `libsdl2-dev`).
+
+  `window()`, `tick()`, `clear()`, `rect()`, `circle()`, `line()`,
+  `key()`, `mouse_x()`/`mouse_y()`/`mouse_down()`, `close_window()`,
+  `beep()`. `draw_text()` is a no-op on the Linux/SDL2 backend for now
+  (no font decoder wired up there yet) but present and callable rather
+  than an error, so the same script runs on both without special-casing.
+- **Physics/collision helpers** (cross-platform, no windowing
+  dependency — usable even without `window()`): `rects_overlap()`,
+  `circles_overlap()`, `clamp()`, `apply_gravity()`, `physics_step()`.
+  These are the same small, composable building blocks the Python
+  implementation's `packages/` scripts use to build actual physics on
+  top of, not a physics *engine* — see the honest gaps below.
 
 ## What's honestly not here yet
 
@@ -52,15 +81,20 @@ Python VM:
   `pyimport()` specifically can't exist here by definition, since the
   whole point of this build is having no Python runtime to call into.
 - No `draw_image()` / `play_sound()` (need an image/audio decoder
-  this build doesn't have yet), no `sort`/`reverse`/`replace`/
-  `starts_with`/`slice`/`concat`/`round`/`pow` stdlib functions yet.
+  this build doesn't have yet), no `replace`/`starts_with`/`slice`/
+  `concat`/`round`/`pow` stdlib functions yet.
+- No sprite animation, particle system, tilemap renderer, or camera —
+  build these in Bolt itself on top of the physics helpers above, the
+  same way the Python implementation's `packages/scenes.bo` does.
+- No text rendering on the Linux/SDL2 backend yet (`draw_text()` is a
+  silent no-op there) — needs SDL_ttf or a bitmap font, not yet added.
 - No bytecode VM or `--native` AOT path — this is a tree-walker only,
   so it does not currently match the speed of Bolt's `--native` mode.
 - No garbage collector — values are arena-leaked for the process
   lifetime. Fine for scripts and games that exit; not suitable yet
   for a long-running server process.
-- Windows-only for now (the game builtins are Win32 GDI directly;
-  Linux/macOS would need an X11/Cocoa backend, not yet written).
+- No macOS backend (the game builtins are Win32 GDI or SDL2/Linux
+  only for now).
 
 Calling an unimplemented builtin fails with a clear `undefined name`
 error rather than crashing (verified — see the min/max bounds fix in

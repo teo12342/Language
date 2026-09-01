@@ -4,9 +4,9 @@
  * This does NOT depend on Python at runtime. It is a separate,
  * from-scratch tree-walking interpreter covering a real subset of
  * the Bolt language: numbers, strings, booleans, nil, lists, maps,
- * functions/closures, control flow, and a Win32-native game-dev
- * builtin set (window/draw/input/sound) that replaces the old
- * tkinter/winsound-backed builtins with real Win32 GDI + Beep().
+ * functions/closures, control flow, and native game-dev builtins
+ * (window/draw/input/sound) on two backends - Win32 GDI on Windows,
+ * SDL2 on Linux.
  *
  * Scope, honestly: this is a new, smaller implementation, not a
  * line-for-line port of the Python VM. Things not yet in here:
@@ -17,9 +17,10 @@
  * arena-leaked for the process lifetime, which is fine for
  * short-lived scripts and games, not for long-running servers).
  *
- * Build (MSVC):   cl /O2 /nologo bolt.c /Fe:nboltc.exe user32.lib gdi32.lib winmm.lib
- * Build (gcc):    gcc -O2 -o nboltc.exe bolt.c -lgdi32 -luser32 -lwinmm
- * Run:            nboltc.exe script.bo
+ * Build (MSVC):        cl /O2 /nologo bolt.c /Fe:nboltc.exe user32.lib gdi32.lib winmm.lib
+ * Build (gcc/Windows):  gcc -O2 -o nboltc.exe bolt.c -lgdi32 -luser32 -lwinmm
+ * Build (gcc/Linux):    gcc -O2 -DBOLT_USE_SDL -o nboltc bolt.c $(sdl2-config --cflags --libs) -lm
+ * Run:                  nboltc(.exe) script.bo
  */
 
 #define _CRT_SECURE_NO_WARNINGS
@@ -33,6 +34,8 @@
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#elif defined(BOLT_USE_SDL)
+#include <SDL2/SDL.h>
 #endif
 
 /* ============================= Values ============================= */
@@ -68,6 +71,17 @@ typedef struct {
     int mouseX, mouseY;
     bool mouseLeft, mouseRight;
     LARGE_INTEGER qpcFreq, lastTick;
+} WindowVal;
+#elif defined(BOLT_USE_SDL)
+typedef struct {
+    SDL_Window *window;
+    SDL_Renderer *renderer;
+    int w, h;
+    bool open;
+    int mouseX, mouseY;
+    bool mouseLeft, mouseRight;
+    Uint64 perfFreq, lastTick;
+    SDL_AudioDeviceID audioDev;
 } WindowVal;
 #else
 typedef struct { int w, h; } WindowVal;
@@ -988,13 +1002,238 @@ static Value *bolt_beep(Value **args, int nargs) {
     Beep(freq, ms);
     return mk_nil();
 }
+#elif defined(BOLT_USE_SDL)
+/* ---- Linux/SDL2 game builtins: same names/signatures as the Win32 set
+ * above, so native_call's dispatch table below needs no per-platform
+ * branching beyond which of these two blocks got compiled in. ---- */
+
+static WindowVal *g_activeWindows[16];
+static int g_nActiveWindows = 0;
+static bool g_sdlInited = false;
+
+static void ensure_sdl_init(void) {
+    if (g_sdlInited) return;
+    SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO);
+    g_sdlInited = true;
+}
+
+static void parse_color_sdl(const char *s, Uint8 *r, Uint8 *g, Uint8 *b) {
+    *r = *g = *b = 0;
+    if (s[0] == '#') {
+        unsigned int rr, gg, bb;
+        sscanf(s + 1, "%02x%02x%02x", &rr, &gg, &bb);
+        *r = (Uint8)rr; *g = (Uint8)gg; *b = (Uint8)bb;
+    }
+}
+
+static Value *bolt_window(Value **args, int nargs) {
+    ensure_sdl_init();
+    int w = (int)args[0]->as.n, h = (int)args[1]->as.n;
+    const char *title = nargs > 2 ? args[2]->as.s : "Bolt";
+    WindowVal *win = calloc(1, sizeof(WindowVal));
+    win->w = w; win->h = h; win->open = true;
+    win->window = SDL_CreateWindow(title, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, w, h, SDL_WINDOW_SHOWN);
+    win->renderer = SDL_CreateRenderer(win->window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+    if (!win->renderer) win->renderer = SDL_CreateRenderer(win->window, -1, SDL_RENDERER_SOFTWARE);
+    win->perfFreq = SDL_GetPerformanceFrequency();
+    win->lastTick = SDL_GetPerformanceCounter();
+    g_activeWindows[g_nActiveWindows++] = win;
+    Value *v = malloc(sizeof(Value)); v->type = V_WINDOW; v->as.win = win;
+    return v;
+}
+
+static Value *bolt_tick(Value **args, int nargs) {
+    WindowVal *win = args[0]->as.win;
+    int fps = nargs > 1 ? (int)args[1]->as.n : 60;
+    if (!win->open) return mk_bool(false);
+    SDL_RenderPresent(win->renderer);
+    SDL_Event ev;
+    while (SDL_PollEvent(&ev)) {
+        switch (ev.type) {
+            case SDL_QUIT: win->open = false; break;
+            case SDL_MOUSEMOTION: win->mouseX = ev.motion.x; win->mouseY = ev.motion.y; break;
+            case SDL_MOUSEBUTTONDOWN:
+                if (ev.button.button == SDL_BUTTON_LEFT) win->mouseLeft = true;
+                if (ev.button.button == SDL_BUTTON_RIGHT) win->mouseRight = true;
+                break;
+            case SDL_MOUSEBUTTONUP:
+                if (ev.button.button == SDL_BUTTON_LEFT) win->mouseLeft = false;
+                if (ev.button.button == SDL_BUTTON_RIGHT) win->mouseRight = false;
+                break;
+        }
+    }
+    Uint64 now = SDL_GetPerformanceCounter();
+    double elapsed = (double)(now - win->lastTick) / win->perfFreq;
+    double target = 1.0 / (fps > 0 ? fps : 60);
+    if (elapsed < target) SDL_Delay((Uint32)((target - elapsed) * 1000));
+    win->lastTick = SDL_GetPerformanceCounter();
+    return mk_bool(win->open);
+}
+
+static Value *bolt_clear(Value **args, int nargs) {
+    WindowVal *win = args[0]->as.win;
+    Uint8 r=255,g=255,b=255;
+    if (nargs > 1) parse_color_sdl(args[1]->as.s, &r, &g, &b);
+    SDL_SetRenderDrawColor(win->renderer, r, g, b, 255);
+    SDL_RenderClear(win->renderer);
+    return mk_nil();
+}
+
+static Value *bolt_rect(Value **args, int nargs) {
+    WindowVal *win = args[0]->as.win;
+    SDL_Rect r = { (int)args[1]->as.n, (int)args[2]->as.n, (int)args[3]->as.n, (int)args[4]->as.n };
+    Uint8 cr=0,cg=0,cb=0;
+    if (nargs > 5) parse_color_sdl(args[5]->as.s, &cr, &cg, &cb);
+    SDL_SetRenderDrawColor(win->renderer, cr, cg, cb, 255);
+    SDL_RenderFillRect(win->renderer, &r);
+    return mk_nil();
+}
+
+static Value *bolt_circle(Value **args, int nargs) {
+    WindowVal *win = args[0]->as.win;
+    int cx = (int)args[1]->as.n, cy = (int)args[2]->as.n, rad = (int)args[3]->as.n;
+    Uint8 cr=0,cg=0,cb=0;
+    if (nargs > 4) parse_color_sdl(args[4]->as.s, &cr, &cg, &cb);
+    SDL_SetRenderDrawColor(win->renderer, cr, cg, cb, 255);
+    /* Filled circle via horizontal scanlines - simple, no extra deps. */
+    for (int dy = -rad; dy <= rad; dy++) {
+        int dx = (int)sqrt((double)(rad*rad - dy*dy));
+        SDL_RenderDrawLine(win->renderer, cx-dx, cy+dy, cx+dx, cy+dy);
+    }
+    return mk_nil();
+}
+
+static Value *bolt_line(Value **args, int nargs) {
+    WindowVal *win = args[0]->as.win;
+    Uint8 cr=0,cg=0,cb=0;
+    if (nargs > 5) parse_color_sdl(args[5]->as.s, &cr, &cg, &cb);
+    SDL_SetRenderDrawColor(win->renderer, cr, cg, cb, 255);
+    SDL_RenderDrawLine(win->renderer, (int)args[1]->as.n, (int)args[2]->as.n, (int)args[3]->as.n, (int)args[4]->as.n);
+    return mk_nil();
+}
+
+static Value *bolt_draw_text(Value **args, int nargs) {
+    /* No SDL_ttf dependency here yet - drawing text glyphs needs a font
+     * decoder this build doesn't have. Deliberately a no-op rather than
+     * a crash, same "honestly not here yet" stance as the README. */
+    (void)args; (void)nargs;
+    return mk_nil();
+}
+
+static Value *bolt_key(Value **args, int nargs) {
+    (void)args[0];
+    const char *name = args[1]->as.s;
+    const Uint8 *state = SDL_GetKeyboardState(NULL);
+    SDL_Scancode sc = SDL_SCANCODE_UNKNOWN;
+    if (strcmp(name, "left") == 0) sc = SDL_SCANCODE_LEFT;
+    else if (strcmp(name, "right") == 0) sc = SDL_SCANCODE_RIGHT;
+    else if (strcmp(name, "up") == 0) sc = SDL_SCANCODE_UP;
+    else if (strcmp(name, "down") == 0) sc = SDL_SCANCODE_DOWN;
+    else if (strcmp(name, "space") == 0) sc = SDL_SCANCODE_SPACE;
+    else if (strcmp(name, "escape") == 0) sc = SDL_SCANCODE_ESCAPE;
+    else if (strlen(name) == 1) sc = SDL_GetScancodeFromKey(tolower((unsigned char)name[0]));
+    if (sc == SDL_SCANCODE_UNKNOWN) return mk_bool(false);
+    return mk_bool(state[sc] != 0);
+}
+
+static Value *bolt_mouse_x(Value **args, int nargs) { return mk_num(args[0]->as.win->mouseX); }
+static Value *bolt_mouse_y(Value **args, int nargs) { return mk_num(args[0]->as.win->mouseY); }
+static Value *bolt_mouse_down(Value **args, int nargs) {
+    WindowVal *win = args[0]->as.win;
+    const char *btn = nargs > 1 ? args[1]->as.s : "left";
+    return mk_bool(strcmp(btn, "right") == 0 ? win->mouseRight : win->mouseLeft);
+}
+static Value *bolt_close_window(Value **args, int nargs) { args[0]->as.win->open = false; return mk_nil(); }
+
+static void sdl_beep_callback(void *userdata, Uint8 *stream, int len) {
+    static double phase = 0;
+    double *freqPtr = (double *)userdata;
+    Sint16 *buf = (Sint16 *)stream;
+    int n = len / 2;
+    for (int i = 0; i < n; i++) {
+        buf[i] = (Sint16)(4000 * sin(phase));
+        phase += 2 * M_PI * (*freqPtr) / 44100.0;
+    }
+}
+
+static Value *bolt_beep(Value **args, int nargs) {
+    ensure_sdl_init();
+    static double freq;
+    freq = args[0]->as.n;
+    int ms = nargs > 1 ? (int)args[1]->as.n : 200;
+    SDL_AudioSpec want = {0}, have;
+    want.freq = 44100; want.format = AUDIO_S16SYS; want.channels = 1; want.samples = 1024;
+    want.callback = sdl_beep_callback; want.userdata = &freq;
+    SDL_AudioDeviceID dev = SDL_OpenAudioDevice(NULL, 0, &want, &have, 0);
+    if (dev) {
+        SDL_PauseAudioDevice(dev, 0);
+        SDL_Delay(ms);
+        SDL_CloseAudioDevice(dev);
+    }
+    return mk_nil();
+}
+#endif
+
+/* ---- Cross-platform game-adjacent helpers: pure math, no windowing
+ * dependency, so these are available even on a build with no display
+ * backend at all (and are shared identically by both backends above). ---- */
 static Value *bolt_rects_overlap(Value **args, int nargs) {
+    (void)nargs;
     double ax=args[0]->as.n, ay=args[1]->as.n, aw=args[2]->as.n, ah=args[3]->as.n;
     double bx=args[4]->as.n, by=args[5]->as.n, bw=args[6]->as.n, bh=args[7]->as.n;
     bool overlap = ax < bx+bw && ax+aw > bx && ay < by+bh && ay+ah > by;
     return mk_bool(overlap);
 }
-#endif
+static Value *bolt_circles_overlap(Value **args, int nargs) {
+    (void)nargs;
+    double ax=args[0]->as.n, ay=args[1]->as.n, ar=args[2]->as.n;
+    double bx=args[3]->as.n, by=args[4]->as.n, br=args[5]->as.n;
+    double dx = ax-bx, dy = ay-by, rr = ar+br;
+    return mk_bool(dx*dx + dy*dy <= rr*rr);
+}
+static Value *bolt_clamp(Value **args, int nargs) {
+    (void)nargs;
+    double v = args[0]->as.n, lo = args[1]->as.n, hi = args[2]->as.n;
+    return mk_num(v < lo ? lo : (v > hi ? hi : v));
+}
+static Value *bolt_apply_gravity(Value **args, int nargs) {
+    /* apply_gravity(vy, gravity, dt) -> vy + gravity*dt */
+    double vy = args[0]->as.n, gravity = args[1]->as.n;
+    double dt = nargs > 2 ? args[2]->as.n : 1.0;
+    return mk_num(vy + gravity * dt);
+}
+static Value *bolt_physics_step(Value **args, int nargs) {
+    /* physics_step(x, y, vx, vy, dt) -> [new_x, new_y] */
+    double x = args[0]->as.n, y = args[1]->as.n, vx = args[2]->as.n, vy = args[3]->as.n;
+    double dt = nargs > 4 ? args[4]->as.n : 1.0;
+    Value *out = mk_list();
+    list_push(out, mk_num(x + vx * dt));
+    list_push(out, mk_num(y + vy * dt));
+    return out;
+}
+static int value_cmp_for_sort(const void *pa, const void *pb) {
+    Value *a = *(Value **)pa, *b = *(Value **)pb;
+    if (a->type == V_STR && b->type == V_STR) return strcmp(a->as.s, b->as.s);
+    double da = a->type == V_NUM ? a->as.n : 0, db = b->type == V_NUM ? b->as.n : 0;
+    return da < db ? -1 : (da > db ? 1 : 0);
+}
+static Value *bolt_sort(Value **args, int nargs) {
+    (void)nargs;
+    Value *l = args[0];
+    if (l->as.list.len > 1) qsort(l->as.list.items, l->as.list.len, sizeof(Value *), value_cmp_for_sort);
+    return l;
+}
+static Value *bolt_reverse(Value **args, int nargs) {
+    (void)nargs;
+    Value *l = args[0];
+    int n = l->as.list.len;
+    for (int i = 0; i < n / 2; i++) {
+        Value *tmp = l->as.list.items[i];
+        l->as.list.items[i] = l->as.list.items[n-1-i];
+        l->as.list.items[n-1-i] = tmp;
+    }
+    return l;
+}
 
 /* ============================ Core builtins ============================ */
 
@@ -1069,7 +1308,7 @@ static Value *native_call(Env *env, const char *name, Expr **argExprs, int nargs
         }
         result = mk_num(have ? best : 0);
     }
-#ifdef _WIN32
+#if defined(_WIN32) || defined(BOLT_USE_SDL)
     else if (strcmp(name, "window") == 0) result = bolt_window(args, nargs);
     else if (strcmp(name, "tick") == 0) result = bolt_tick(args, nargs);
     else if (strcmp(name, "clear") == 0) result = bolt_clear(args, nargs);
@@ -1083,8 +1322,14 @@ static Value *native_call(Env *env, const char *name, Expr **argExprs, int nargs
     else if (strcmp(name, "mouse_down") == 0) result = bolt_mouse_down(args, nargs);
     else if (strcmp(name, "close_window") == 0) result = bolt_close_window(args, nargs);
     else if (strcmp(name, "beep") == 0) result = bolt_beep(args, nargs);
-    else if (strcmp(name, "rects_overlap") == 0) result = bolt_rects_overlap(args, nargs);
 #endif
+    else if (strcmp(name, "rects_overlap") == 0) result = bolt_rects_overlap(args, nargs);
+    else if (strcmp(name, "circles_overlap") == 0) result = bolt_circles_overlap(args, nargs);
+    else if (strcmp(name, "clamp") == 0) result = bolt_clamp(args, nargs);
+    else if (strcmp(name, "apply_gravity") == 0) result = bolt_apply_gravity(args, nargs);
+    else if (strcmp(name, "physics_step") == 0) result = bolt_physics_step(args, nargs);
+    else if (strcmp(name, "sort") == 0) result = bolt_sort(args, nargs);
+    else if (strcmp(name, "reverse") == 0) result = bolt_reverse(args, nargs);
 
     free(args);
     return result;

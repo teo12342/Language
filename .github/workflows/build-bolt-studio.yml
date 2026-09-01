@@ -41,6 +41,20 @@ jobs:
       - name: Apply Bolt Studio branding
         run: cp bolt-repo/editor/branding/product.json vscodium-src/product.json
 
+      - name: Setup MSVC for the native interpreter
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Build native nboltc.exe
+        shell: cmd
+        run: |
+          cd bolt-repo\native
+          cl /O2 /nologo bolt.c /Fe:nboltc.exe user32.lib gdi32.lib winmm.lib /link /STACK:67108864
+
+      - name: Bundle nboltc.exe into the extension
+        run: |
+          mkdir -p bolt-repo/editor/vscode-bolt/bin
+          cp bolt-repo/native/nboltc.exe bolt-repo/editor/vscode-bolt/bin/nboltc.exe
+
       - name: Fetch upstream VS Code source
         working-directory: vscodium-src
         env:
@@ -184,10 +198,19 @@ jobs:
       - name: Install native build dependencies
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq libx11-dev libxkbfile-dev libsecret-1-dev libkrb5-dev fakeroot rpm
+          sudo apt-get install -y -qq libx11-dev libxkbfile-dev libsecret-1-dev libkrb5-dev fakeroot rpm libsdl2-dev
 
       - name: Apply Bolt Studio branding
         run: cp bolt-repo/editor/branding/product.json vscodium-src/product.json
+
+      - name: Build native nboltc
+        run: bash bolt-repo/native/build-linux.sh
+
+      - name: Bundle nboltc into the extension
+        run: |
+          mkdir -p bolt-repo/editor/vscode-bolt/bin
+          cp bolt-repo/native/nboltc bolt-repo/editor/vscode-bolt/bin/nboltc
+          chmod +x bolt-repo/editor/vscode-bolt/bin/nboltc
 
       - name: Fetch upstream VS Code source
         working-directory: vscodium-src
