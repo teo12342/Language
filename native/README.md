@@ -61,13 +61,14 @@ native/nboltc examples/loops.bo          # Linux
   - **Linux**: SDL2 (`-DBOLT_USE_SDL`, needs `libsdl2-dev`).
 
   `window()`, `tick()`, `clear()`, `rect()`, `circle()`, `line()`,
-  `key()`, `mouse_x()`/`mouse_y()`/`mouse_down()`, `close_window()`,
+  `key()`, `mouse_x()`/`mouse_y()`/`mouse_down()`, `window_size()`, `close_window()`,
   `beep()`. `draw_text()` is a no-op on the Linux/SDL2 backend for now
   (no font decoder wired up there yet) but present and callable rather
   than an error, so the same script runs on both without special-casing.
 - **Physics/collision helpers** (cross-platform, no windowing
   dependency — usable even without `window()`): `rects_overlap()`,
-  `circles_overlap()`, `clamp()`, `apply_gravity()`, `physics_step()`.
+  `circles_overlap()`, `clamp()`, `lerp()`, `distance()`, `random()`,
+  `apply_gravity()`, `physics_step()`.
   These are the same small, composable building blocks the Python
   implementation's `packages/` scripts use to build actual physics on
   top of, not a physics *engine* — see the honest gaps below.

@@ -1250,6 +1250,14 @@ static Value *bolt_reverse(Value **args, int nargs) {
     }
     return l;
 }
+static Value *bolt_window_size(Value **args, int nargs) {
+    (void)args; (void)nargs;
+    if (g_nActiveWindows == 0 || !g_activeWindows[0]->open) return mk_nil();
+    Value *out = mk_list();
+    list_push(out, mk_num(g_activeWindows[0]->w));
+    list_push(out, mk_num(g_activeWindows[0]->h));
+    return out;
+}
 
 /* ============================ Core builtins ============================ */
 
@@ -1338,6 +1346,7 @@ static Value *native_call(Env *env, const char *name, Expr **argExprs, int nargs
     else if (strcmp(name, "mouse_down") == 0) result = bolt_mouse_down(args, nargs);
     else if (strcmp(name, "close_window") == 0) result = bolt_close_window(args, nargs);
     else if (strcmp(name, "beep") == 0) result = bolt_beep(args, nargs);
+    else if (strcmp(name, "window_size") == 0) result = bolt_window_size(args, nargs);
 #endif
     else if (strcmp(name, "rects_overlap") == 0) result = bolt_rects_overlap(args, nargs);
     else if (strcmp(name, "circles_overlap") == 0) result = bolt_circles_overlap(args, nargs);
