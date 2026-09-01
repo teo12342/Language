@@ -605,3 +605,5 @@ Completed the original 5-phase roadmap in one pass:
 - First working version: lexer → recursive-descent parser → AST →
   tree-walking interpreter. Variables, functions, closures, recursion,
   control flow, lists, maps, and a small set of built-ins.
+
+- Added native game helpers lerp(), distance(), and andom() for animation, movement, and procedural gameplay.

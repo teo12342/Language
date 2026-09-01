@@ -1195,6 +1195,23 @@ static Value *bolt_clamp(Value **args, int nargs) {
     double v = args[0]->as.n, lo = args[1]->as.n, hi = args[2]->as.n;
     return mk_num(v < lo ? lo : (v > hi ? hi : v));
 }
+static Value *bolt_lerp(Value **args, int nargs) {
+    (void)nargs;
+    double a = args[0]->as.n, b = args[1]->as.n, t = args[2]->as.n;
+    return mk_num(a + (b - a) * t);
+}
+static Value *bolt_distance(Value **args, int nargs) {
+    (void)nargs;
+    double dx = args[0]->as.n - args[2]->as.n;
+    double dy = args[1]->as.n - args[3]->as.n;
+    return mk_num(sqrt(dx * dx + dy * dy));
+}
+static Value *bolt_random(Value **args, int nargs) {
+    double lo = nargs > 1 ? args[0]->as.n : 0.0;
+    double hi = nargs > 1 ? args[1]->as.n : args[0]->as.n;
+    if (hi < lo) { double tmp = lo; lo = hi; hi = tmp; }
+    return mk_num(lo + ((double)rand() / (double)RAND_MAX) * (hi - lo));
+}
 static Value *bolt_apply_gravity(Value **args, int nargs) {
     /* apply_gravity(vy, gravity, dt) -> vy + gravity*dt */
     double vy = args[0]->as.n, gravity = args[1]->as.n;
@@ -1325,6 +1342,9 @@ static Value *native_call(Env *env, const char *name, Expr **argExprs, int nargs
     else if (strcmp(name, "rects_overlap") == 0) result = bolt_rects_overlap(args, nargs);
     else if (strcmp(name, "circles_overlap") == 0) result = bolt_circles_overlap(args, nargs);
     else if (strcmp(name, "clamp") == 0) result = bolt_clamp(args, nargs);
+    else if (strcmp(name, "lerp") == 0) result = bolt_lerp(args, nargs);
+    else if (strcmp(name, "distance") == 0) result = bolt_distance(args, nargs);
+    else if (strcmp(name, "random") == 0) result = bolt_random(args, nargs);
     else if (strcmp(name, "apply_gravity") == 0) result = bolt_apply_gravity(args, nargs);
     else if (strcmp(name, "physics_step") == 0) result = bolt_physics_step(args, nargs);
     else if (strcmp(name, "sort") == 0) result = bolt_sort(args, nargs);
