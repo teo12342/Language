@@ -42,6 +42,13 @@ RETURN = 38
 GET_LOCAL_RAW = 39
 SET_LOCAL_RAW = 40
 INIT_LOCAL_RAW = 41
+POW = 42
+# Structured error handling. SETUP_TRY's arg is the ip of its catch
+# handler; the handler is entered with the caught error's message pushed
+# on the operand stack (the compiler then binds or discards it).
+SETUP_TRY = 43
+POP_TRY = 44
+THROW = 45
 
 
 @dataclass

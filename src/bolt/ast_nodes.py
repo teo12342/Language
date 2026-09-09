@@ -170,3 +170,21 @@ class ContinueStmt(Stmt):
 class Block(Stmt):
     statements: list[Stmt]
     line: int
+
+
+@dataclass
+class TryStmt(Stmt):
+    """try { ... } catch e { ... } - `error_name` is the variable the
+    caught error message is bound to inside the catch block (None for a
+    bare `catch { ... }` that ignores the message)."""
+
+    body: list[Stmt]
+    error_name: str | None
+    catch_body: list[Stmt]
+    line: int
+
+
+@dataclass
+class ThrowStmt(Stmt):
+    value: Expr
+    line: int
