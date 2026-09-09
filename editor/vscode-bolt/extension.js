@@ -222,37 +222,87 @@ function activate(context) {
     panel.webview.html = `<!DOCTYPE html><html><body style="margin:0;height:100%;overflow:hidden"><iframe id="frame" style="width:100%;height:100%;border:0"></iframe><script>document.getElementById('frame').srcdoc=atob('${encoded}');</script></body></html>`;
   }
 
+  // Keeping the whole run's output in the DOM meant a game printing once
+  // per frame grew the console string without bound - tens of megabytes
+  // after a few minutes, which is exactly when Studio started to feel
+  // sluggish. The console now keeps a bounded tail; the full, untruncated
+  // log is always still in the "Bolt Preview" output channel.
+  const CONSOLE_MAX_CHARS = 200000;
+
   const CONSOLE_HTML = `<!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8">
 <style>
   html, body { margin: 0; height: 100%; background: #171410; color: #ece5d6; }
-  #head { padding: 6px 10px; background: #211d17; border-bottom: 1px solid #3a3327; font-family: -apple-system, "Segoe UI", sans-serif; font-size: 11.5px; color: #a89d86; }
-  #out { margin: 0; padding: 10px 12px; height: calc(100% - 27px); overflow-y: auto; font-family: ui-monospace, Consolas, monospace; font-size: 13px; white-space: pre-wrap; box-sizing: border-box; }
+  #head { padding: 6px 10px; background: #211d17; border-bottom: 1px solid #3a3327; font-family: -apple-system, "Segoe UI", sans-serif; font-size: 11.5px; color: #a89d86; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+  #status { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #stop { background: #e2895f; color: #171410; border: none; border-radius: 4px; padding: 3px 10px; cursor: pointer; font-weight: 600; font-size: 11px; flex-shrink: 0; }
+  #stop:disabled { opacity: 0.4; cursor: default; }
+  #out { margin: 0; padding: 10px 12px; height: calc(100% - 29px); overflow-y: auto; font-family: ui-monospace, Consolas, monospace; font-size: 13px; white-space: pre-wrap; box-sizing: border-box; }
   .exit-ok { color: #7bc98c; }
   .exit-fail { color: #e2895f; }
 </style>
 </head>
 <body>
-  <div id="head">Running…</div>
+  <div id="head"><span id="status">Starting…</span><button id="stop">Stop</button></div>
   <pre id="out"></pre>
   <script>
+    const vscodeApi = acquireVsCodeApi();
     const outEl = document.getElementById('out');
-    const headEl = document.getElementById('head');
+    const headEl = document.getElementById('status');
+    const stopEl = document.getElementById('stop');
+    const MAX_CHARS = ${CONSOLE_MAX_CHARS};
+    let buffer = '';
+
+    stopEl.addEventListener('click', () => vscodeApi.postMessage({ type: 'stop' }));
+
     window.addEventListener('message', (event) => {
       const msg = event.data;
       if (msg.type === 'append') {
-        outEl.textContent += msg.text;
+        buffer += msg.text;
+        if (buffer.length > MAX_CHARS) {
+          // Trim to a line boundary so the visible tail never starts
+          // mid-line, and say so rather than silently losing output.
+          const cut = buffer.length - MAX_CHARS;
+          const nl = buffer.indexOf('\\n', cut);
+          buffer = '…[earlier output trimmed - see the "Bolt Preview" output channel for the full log]\\n'
+            + buffer.slice(nl === -1 ? cut : nl + 1);
+        }
+        outEl.textContent = buffer;
         outEl.scrollTop = outEl.scrollHeight;
+      } else if (msg.type === 'status') {
+        headEl.textContent = msg.text;
       } else if (msg.type === 'done') {
         headEl.textContent = msg.ok ? 'Finished (exit 0)' : 'Finished (exit ' + msg.code + ')';
         headEl.className = msg.ok ? 'exit-ok' : 'exit-fail';
+        stopEl.disabled = true;
       }
     });
+
+    // Tell the extension the webview is live. Messages posted to a
+    // webview before its script has loaded are dropped by VS Code, so
+    // without this handshake a fast script (print, then exit) could
+    // finish before the panel was listening and show a blank console -
+    // which looked exactly like "Preview doesn't work".
+    vscodeApi.postMessage({ type: 'ready' });
   </script>
 </body>
 </html>`;
+
+  // Output produced before the webview reports 'ready' is buffered here
+  // and flushed on the handshake, so nothing is ever lost.
+  let consoleReady = false;
+  let pendingConsoleMessages = [];
+
+  function postToConsole(message) {
+    if (!panel) return;
+    if (!consoleReady) {
+      pendingConsoleMessages.push(message);
+      return;
+    }
+    panel.webview.postMessage(message);
+  }
 
   function openConsole(title) {
     if (!panel) {
@@ -262,12 +312,28 @@ function activate(context) {
         { viewColumn: vscode.ViewColumn.Beside, preserveFocus: true },
         { enableScripts: true, retainContextWhenHidden: true }
       );
-      panel.onDidDispose(() => { panel = undefined; });
+      panel.onDidDispose(() => { panel = undefined; consoleReady = false; pendingConsoleMessages = []; });
     } else {
       panel.title = title || panel.title;
       panel.reveal(vscode.ViewColumn.Beside, true);
     }
+    consoleReady = false;
+    pendingConsoleMessages = [];
     panel.webview.html = CONSOLE_HTML;
+    panel.webview.onDidReceiveMessage((msg) => {
+      if (msg && msg.type === 'ready') {
+        consoleReady = true;
+        const queued = pendingConsoleMessages;
+        pendingConsoleMessages = [];
+        for (const m of queued) panel.webview.postMessage(m);
+      } else if (msg && msg.type === 'stop') {
+        // Lets a runaway script or game loop be stopped from the panel
+        // itself instead of only when the next run replaces it.
+        killChild();
+        postToConsole({ type: 'append', text: '\n[stopped by user]\n' });
+        postToConsole({ type: 'done', ok: false, code: -1 });
+      }
+    });
   }
 
   // Preview processes can emit many tiny chunks per frame. Posting each one
@@ -284,7 +350,7 @@ function activate(context) {
       if (panel && previewTextQueue) {
         const queued = previewTextQueue;
         previewTextQueue = '';
-        panel.webview.postMessage({ type: 'append', text: queued });
+        postToConsole({ type: 'append', text: queued });
       } else {
         previewTextQueue = '';
       }
@@ -364,6 +430,10 @@ function activate(context) {
     output.clear();
     previewTextQueue = '';
     openConsole('Preview: ' + path.basename(file));
+    // Name the interpreter actually being used. When Preview misbehaves,
+    // the first question is always "which runtime ran this?" - showing it
+    // up front turns that into a glance instead of a guess.
+    postToConsole({ type: 'status', text: `Running ${path.basename(cmd)} ${path.basename(file)}…` });
 
     output.appendLine(`$ ${cmd} ${args.join(' ')}\n`);
     // All supported commands are executable paths or normal PATH commands;
@@ -403,7 +473,7 @@ function activate(context) {
         // Let the queued final stdout/stderr batch arrive before changing the
         // status line, so the last error is visible above the exit code.
         setTimeout(() => {
-          if (panel) panel.webview.postMessage({ type: 'done', ok: code === 0, code });
+          if (panel) postToConsole({ type: 'done', ok: code === 0, code });
         }, 20);
       }
     });
@@ -413,9 +483,20 @@ function activate(context) {
         postPreviewText(`\n[failed to start "${cmd}": ${err.message}]`);
         // Without this the header stays stuck on "Running..." forever -
         // 'close' never fires for a process that never started.
-        if (!opened) panel.webview.postMessage({ type: 'done', ok: false, code: -1 });
+        if (!opened) postToConsole({ type: 'done', ok: false, code: -1 });
       }
     });
+  }
+
+  function stopPreview() {
+    if (!child) {
+      vscode.window.showInformationMessage('Bolt Preview: nothing is running.');
+      return;
+    }
+    killChild();
+    output.appendLine('\n[stopped by user]');
+    postToConsole({ type: 'append', text: '\n[stopped by user]\n' });
+    postToConsole({ type: 'done', ok: false, code: -1 });
   }
 
   async function openPreviewPanel() {
@@ -715,6 +796,7 @@ function activate(context) {
 
   context.subscriptions.push(
     vscode.commands.registerCommand('bolt.previewFile', previewFile),
+    vscode.commands.registerCommand('bolt.stopPreview', stopPreview),
     vscode.commands.registerCommand('bolt.openPreviewPanel', openPreviewPanel),
     vscode.commands.registerCommand('bolt.openAssistant', openAssistant),
     vscode.commands.registerCommand('bolt.setOpenRouterKey', setOpenRouterKeyCommand),
