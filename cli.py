@@ -106,7 +106,9 @@ def main():
         print(f"Error: file not found: {path}", file=sys.stderr)
         sys.exit(1)
 
-    source = path.read_text()
+    # utf-8-sig transparently drops a BOM if the file has one (Windows
+    # editors add one by default) and behaves exactly like utf-8 if not.
+    source = path.read_text(encoding="utf-8-sig")
 
     if args.target == "js":
         sys.exit(transpile_to_js(source, path.with_suffix(".js")))

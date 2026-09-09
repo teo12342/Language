@@ -2,7 +2,7 @@
   "name": "bolt-lang",
   "displayName": "Bolt Language",
   "description": "Syntax highlighting, language configuration, a Bolt-branded color theme, a built-in app previewer, and an AI assistant for the Bolt programming language (.bo files) and beyond.",
-  "version": "0.4.1",
+  "version": "0.7.0",
   "publisher": "bolt-lang",
   "engines": {
     "vscode": "^1.75.0"
@@ -44,6 +44,11 @@
         "icon": "$(open-preview)"
       },
       {
+        "command": "bolt.stopPreview",
+        "title": "Bolt: Stop Preview",
+        "icon": "$(debug-stop)"
+      },
+      {
         "command": "bolt.openPreviewPanel",
         "title": "Bolt: Open Preview Panel (any URL)"
       },
@@ -67,6 +72,7 @@
       ],
       "commandPalette": [
         { "command": "bolt.previewFile" },
+        { "command": "bolt.stopPreview" },
         { "command": "bolt.openPreviewPanel" },
         { "command": "bolt.openAssistant" },
         { "command": "bolt.setOpenRouterKey" }
