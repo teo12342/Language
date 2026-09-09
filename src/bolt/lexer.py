@@ -26,12 +26,21 @@ class TokenType(Enum):
     AND = auto()
     OR = auto()
     NOT = auto()
+    TRY = auto()
+    CATCH = auto()
+    THROW = auto()
     # Symbols
     PLUS = auto()
     MINUS = auto()
     STAR = auto()
     SLASH = auto()
     PERCENT = auto()
+    POW = auto()
+    PLUSEQ = auto()
+    MINUSEQ = auto()
+    STAREQ = auto()
+    SLASHEQ = auto()
+    PERCENTEQ = auto()
     EQ = auto()
     EQEQ = auto()
     BANGEQ = auto()
@@ -70,6 +79,9 @@ KEYWORDS = {
     "and": TokenType.AND,
     "or": TokenType.OR,
     "not": TokenType.NOT,
+    "try": TokenType.TRY,
+    "catch": TokenType.CATCH,
+    "throw": TokenType.THROW,
 }
 
 
@@ -83,7 +95,12 @@ class Token:
 
 class Lexer:
     def __init__(self, source: str):
-        self.source = source
+        # Strip a UTF-8 byte-order mark if one survived decoding. Windows
+        # editors (Notepad included) save UTF-8 files with a BOM by
+        # default, and without this a perfectly valid .bo file failed with
+        # a baffling "Unexpected character '﻿'" on line 1 - hit for
+        # real while testing, not a hypothetical.
+        self.source = source.lstrip("﻿") if source.startswith("﻿") else source
         self.tokens: list[Token] = []
         self.start = 0
         self.current = 0
@@ -139,15 +156,24 @@ class Lexer:
             return
 
         if c == "+":
-            self._add_token(TokenType.PLUS)
+            self._add_token(TokenType.PLUSEQ if self._match("=") else TokenType.PLUS)
         elif c == "-":
-            self._add_token(TokenType.MINUS)
+            self._add_token(TokenType.MINUSEQ if self._match("=") else TokenType.MINUS)
         elif c == "*":
-            self._add_token(TokenType.STAR)
+            # '**' (power) must be tested before '*=' so that `2 ** 3` never
+            # lexes as `2 * (*= 3)`. '**=' is deliberately not a token: it
+            # would lex as POW followed by EQ and fail at parse time with a
+            # clear error rather than silently doing something surprising.
+            if self._match("*"):
+                self._add_token(TokenType.POW)
+            elif self._match("="):
+                self._add_token(TokenType.STAREQ)
+            else:
+                self._add_token(TokenType.STAR)
         elif c == "/":
-            self._add_token(TokenType.SLASH)
+            self._add_token(TokenType.SLASHEQ if self._match("=") else TokenType.SLASH)
         elif c == "%":
-            self._add_token(TokenType.PERCENT)
+            self._add_token(TokenType.PERCENTEQ if self._match("=") else TokenType.PERCENT)
         elif c == "(":
             self._add_token(TokenType.LPAREN)
         elif c == ")":
